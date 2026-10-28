@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.ime.hitboxd.auth.AuthUser;
+import br.ime.hitboxd.auth.CurrentUser;
 import br.ime.hitboxd.review.ReviewDtos.ReviewInput;
 import br.ime.hitboxd.review.ReviewDtos.ReviewView;
 import jakarta.validation.Valid;
@@ -41,24 +43,24 @@ public class ReviewController {
 
 	@PostMapping("/reviews")
 	@ResponseStatus(HttpStatus.CREATED)
-	public ReviewView create(@Valid @RequestBody ReviewInput input) {
-		return service.create(input);
+	public ReviewView create(@CurrentUser AuthUser me, @Valid @RequestBody ReviewInput input) {
+		return service.create(me.id(), input);
 	}
 
 	@PutMapping("/reviews/{id}")
-	public ReviewView update(@PathVariable Long id, @Valid @RequestBody ReviewInput input) {
-		return service.update(id, input);
+	public ReviewView update(@CurrentUser AuthUser me, @PathVariable Long id, @Valid @RequestBody ReviewInput input) {
+		return service.update(id, me.id(), input);
 	}
 
 	@DeleteMapping("/reviews/{id}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
-	public void delete(@PathVariable Long id) {
-		service.delete(id);
+	public void delete(@CurrentUser AuthUser me, @PathVariable Long id) {
+		service.delete(id, me.id());
 	}
 
 	@PostMapping("/reviews/{id}/like")
-	public ReviewView like(@PathVariable Long id, @RequestParam Long userId) {
-		return service.toggleLike(id, userId);
+	public ReviewView like(@CurrentUser AuthUser me, @PathVariable Long id) {
+		return service.toggleLike(id, me.id());
 	}
 
 	/** O diário do usuário: entradas em ordem da data em que jogou. */

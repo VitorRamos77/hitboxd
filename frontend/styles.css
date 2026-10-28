@@ -70,6 +70,7 @@ h1, h2, h3 { font-family: var(--font-display); line-height: 1.2; margin: 0; }
 
 .login-divider { display: flex; align-items: center; gap: 12px; margin: 22px 0 12px; color: var(--text-faint); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
 .login-divider::before, .login-divider::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.google-slot { display: flex; justify-content: center; min-height: 44px; margin-top: 18px; }
 .login-users { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
 .login-user { display: flex; align-items: center; gap: 10px; text-align: left; background: var(--bg-sunken); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
 .login-user:hover { border-color: var(--accent); }
@@ -185,7 +186,7 @@ a:hover .cover { transform: translateY(-3px); box-shadow: 0 0 0 2px var(--accent
 .histogram div:hover { background: var(--accent); }
 .histogram-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-faint); margin-top: 4px; }
 
-#gallery .section { margin-top: 40px; }
+#gallery .section, #similar .section { margin-top: 40px; }
 .game-description { font-size: 16px; margin: 0 0 18px; }
 .audience { background: var(--bg-raised); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 8px; padding: 14px 16px; }
 .audience h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .1em; color: var(--accent); font-family: var(--font); margin-bottom: 4px; }
@@ -325,6 +326,8 @@ img.avatar { object-fit: cover; background: var(--bg-raised); }
 .admin-login { max-width: 420px; margin: 40px auto; }
 .admin-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .admin-actions { display: flex; gap: 10px; }
+.admin-updates { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; margin-top: 16px; }
+.admin-updates:empty { display: none; }
 .admin-search { width: 100%; max-width: 360px; background: var(--bg-raised); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin: 16px 0; }
 .admin-list { display: grid; gap: 6px; }
 .admin-row { display: grid; grid-template-columns: 46px 1fr auto auto; gap: 14px; align-items: center; background: var(--bg-raised); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px 8px 8px; }

@@ -180,6 +180,13 @@ class Catalog:
             self._games[game_id] = game
             return game
 
+    def set_hltb(self, game_id: int, hltb: HowLongToBeat) -> None:
+        """Troca só os tempos do HowLongToBeat (usado pela atualização automática)."""
+        with self._lock:
+            game = self._games.get(game_id)
+            if game:
+                self._games[game_id] = game.model_copy(update={"hltb": hltb})
+
     def get(self, game_id: int) -> Game | None:
         return self._games.get(game_id)
 

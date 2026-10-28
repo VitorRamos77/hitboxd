@@ -37,6 +37,20 @@ public class User {
 
 	private Instant createdAt = Instant.now();
 
+	/** Hash BCrypt da senha; nulo para contas que só entram com o Google. */
+	@Column(length = 100)
+	private String passwordHash;
+
+	@Column(unique = true, length = 254)
+	private String email;
+
+	/** E-mail confirmado pelo Google. E-mail digitado no cadastro com senha não é verificado. */
+	private boolean emailVerified;
+
+	/** Identificador da conta Google ("sub" do token), quando a conta está ligada ao Google. */
+	@Column(unique = true, length = 64)
+	private String googleSub;
+
 	/** Foto de perfil já reduzida pelo navegador (no máximo 256 KB). */
 	@Basic(fetch = FetchType.LAZY)
 	@Column(length = UserService.MAX_AVATAR_BYTES)
@@ -92,6 +106,38 @@ public class User {
 
 	public Instant getCreatedAt() {
 		return createdAt;
+	}
+
+	public String getPasswordHash() {
+		return passwordHash;
+	}
+
+	public void setPasswordHash(String passwordHash) {
+		this.passwordHash = passwordHash;
+	}
+
+	public String getEmail() {
+		return email;
+	}
+
+	public void setEmail(String email) {
+		this.email = email;
+	}
+
+	public boolean isEmailVerified() {
+		return emailVerified;
+	}
+
+	public void setEmailVerified(boolean emailVerified) {
+		this.emailVerified = emailVerified;
+	}
+
+	public String getGoogleSub() {
+		return googleSub;
+	}
+
+	public void setGoogleSub(String googleSub) {
+		this.googleSub = googleSub;
 	}
 
 	public byte[] getAvatar() {

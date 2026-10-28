@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated
 
 from pydantic import BaseModel, Field, computed_field
@@ -10,6 +11,8 @@ class HowLongToBeat(BaseModel):
     mainStory: float | None = None
     mainExtra: float | None = None
     completionist: float | None = None
+    # quando os tempos foram buscados no site pela última vez (nulo: dados iniciais)
+    updatedAt: datetime | None = None
 
     @computed_field
     @property

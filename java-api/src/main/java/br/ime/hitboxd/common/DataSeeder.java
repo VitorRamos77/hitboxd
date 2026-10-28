@@ -7,8 +7,12 @@ import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -105,17 +109,23 @@ public class DataSeeder implements CommandLineRunner {
 			new SeedEntry(4, 9, 7, 23, 1.0, "Uma pista nova sobre o corpo enforcado no pátio."),
 			new SeedEntry(4, 9, 3, 19, 2.5, "Kim Kitsuragi é o melhor parceiro de investigação que já tive num jogo."));
 
+	private static final Logger log = LoggerFactory.getLogger(DataSeeder.class);
+
 	private final UserRepository users;
 	private final ReviewRepository reviews;
 	private final GameListRepository lists;
 	private final JournalRepository journal;
+	private final PasswordEncoder passwords;
+	private final String demoPassword;
 
 	public DataSeeder(UserRepository users, ReviewRepository reviews, GameListRepository lists,
-			JournalRepository journal) {
+			JournalRepository journal, PasswordEncoder passwords, @Value("${hitboxd.demo-password:}") String demoPassword) {
 		this.users = users;
 		this.reviews = reviews;
 		this.lists = lists;
 		this.journal = journal;
+		this.passwords = passwords;
+		this.demoPassword = demoPassword;
 	}
 
 	@Override
@@ -130,6 +140,14 @@ public class DataSeeder implements CommandLineRunner {
 				new User("bia_rpg", "Beatriz Costa", "100 horas é o aquecimento.", "#7768ae"),
 				new User("lucas_coop", "Lucas Martins", "Jogo bom é jogo com os amigos.", "#f3a712"),
 				new User("marina_puzzle", "Marina Rocha", "Puzzles, mistérios e exploração.", "#3c91e6")));
+
+		// as contas de exemplo só entram com senha se DEMO_PASSWORD estiver definida: não há senha padrão
+		if (demoPassword != null && !demoPassword.isBlank()) {
+			String hash = passwords.encode(demoPassword);
+			people.forEach(u -> u.setPasswordHash(hash));
+		} else {
+			log.warn("DEMO_PASSWORD nao definida: as contas de exemplo nao entram com senha.");
+		}
 
 		follow(people.get(0), people.get(1), people.get(2));
 		follow(people.get(1), people.get(0), people.get(4));

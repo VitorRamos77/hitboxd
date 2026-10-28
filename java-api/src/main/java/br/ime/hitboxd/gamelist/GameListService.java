@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.ime.hitboxd.common.ForbiddenException;
 import br.ime.hitboxd.common.NotFoundException;
 import br.ime.hitboxd.gamelist.GameListDtos.ListInput;
 import br.ime.hitboxd.gamelist.GameListDtos.ListView;
@@ -42,31 +43,28 @@ public class GameListService {
 	}
 
 	@Transactional
-	public ListView create(ListInput input) {
-		GameList list = new GameList(users.find(input.ownerId()), input.title().strip());
+	public ListView create(Long ownerId, ListInput input) {
+		GameList list = new GameList(users.find(ownerId), input.title().strip());
 		apply(list, input);
 		return ListView.of(lists.save(list));
 	}
 
 	@Transactional
-	public ListView update(Long id, ListInput input) {
-		GameList list = find(id);
-		if (!list.getOwner().getId().equals(input.ownerId())) {
-			throw new IllegalArgumentException("Só o dono pode editar a lista");
-		}
+	public ListView update(Long id, Long ownerId, ListInput input) {
+		GameList list = owned(id, ownerId);
 		list.setTitle(input.title().strip());
 		apply(list, input);
 		return ListView.of(list);
 	}
 
 	@Transactional
-	public void delete(Long id) {
-		lists.delete(find(id));
+	public void delete(Long id, Long ownerId) {
+		lists.delete(owned(id, ownerId));
 	}
 
 	@Transactional
-	public ListView addGame(Long id, Long gameId) {
-		GameList list = find(id);
+	public ListView addGame(Long id, Long ownerId, Long gameId) {
+		GameList list = owned(id, ownerId);
 		if (!list.getGameIds().contains(gameId)) {
 			list.getGameIds().add(gameId);
 		}
@@ -74,8 +72,8 @@ public class GameListService {
 	}
 
 	@Transactional
-	public ListView removeGame(Long id, Long gameId) {
-		GameList list = find(id);
+	public ListView removeGame(Long id, Long ownerId, Long gameId) {
+		GameList list = owned(id, ownerId);
 		list.getGameIds().remove(gameId);
 		return ListView.of(list);
 	}
@@ -87,6 +85,14 @@ public class GameListService {
 			list.getGameIds().clear();
 			input.gameIds().stream().distinct().forEach(list.getGameIds()::add);
 		}
+	}
+
+	private GameList owned(Long id, Long ownerId) {
+		GameList list = find(id);
+		if (!list.getOwner().getId().equals(ownerId)) {
+			throw new ForbiddenException("Só o dono pode alterar esta lista");
+		}
+		return list;
 	}
 
 	private GameList find(Long id) {

@@ -11,7 +11,6 @@ import br.ime.hitboxd.common.ConflictException;
 import br.ime.hitboxd.common.NotFoundException;
 import br.ime.hitboxd.gamelist.GameListRepository;
 import br.ime.hitboxd.review.ReviewRepository;
-import br.ime.hitboxd.user.UserDtos.CreateUser;
 import br.ime.hitboxd.user.UserDtos.UpdateUser;
 import br.ime.hitboxd.user.UserDtos.UserProfile;
 import br.ime.hitboxd.user.UserDtos.UserSummary;
@@ -60,14 +59,14 @@ public class UserService {
 				reviews.countWrittenByUserId(id), lists.countByOwnerId(id), following, users.countFollowers(id));
 	}
 
+	/** Cria a conta; a senha ou o vínculo com o Google ficam por conta do {@code AuthService}. */
 	@Transactional
-	public UserProfile create(CreateUser input) {
-		if (users.existsByUsernameIgnoreCase(input.username())) {
-			throw new ConflictException("O nome de usuário @" + input.username() + " já está em uso");
+	public User newUser(String username, String displayName, String bio) {
+		if (users.existsByUsernameIgnoreCase(username)) {
+			throw new ConflictException("O nome de usuário @" + username + " já está em uso");
 		}
 		String color = AVATAR_COLORS[(int) (users.count() % AVATAR_COLORS.length)];
-		User user = users.save(new User(input.username(), input.displayName(), input.bio(), color));
-		return profile(user.getId());
+		return users.save(new User(username, displayName, bio, color));
 	}
 
 	@Transactional

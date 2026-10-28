@@ -18,7 +18,6 @@ public final class JournalDtos {
 	}
 
 	public record EntryInput(
-			@NotNull @Positive Long userId,
 			@NotNull @Positive Long gameId,
 			@NotBlank @Size(max = 4000) String text,
 			@PastOrPresent LocalDate playedOn,

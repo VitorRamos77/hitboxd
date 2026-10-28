@@ -10,6 +10,7 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.ime.hitboxd.common.ForbiddenException;
 import br.ime.hitboxd.common.NotFoundException;
 import br.ime.hitboxd.journal.JournalDtos.EntryInput;
 import br.ime.hitboxd.journal.JournalDtos.EntryView;
@@ -73,16 +74,16 @@ public class JournalService {
 	}
 
 	@Transactional
-	public EntryView create(EntryInput input) {
-		JournalEntry entry = new JournalEntry(users.find(input.userId()), input.gameId());
+	public EntryView create(Long userId, EntryInput input) {
+		JournalEntry entry = new JournalEntry(users.find(userId), input.gameId());
 		apply(entry, input);
 		return EntryView.of(entries.save(entry));
 	}
 
 	@Transactional
-	public EntryView update(Long id, EntryInput input) {
+	public EntryView update(Long id, Long userId, EntryInput input) {
 		JournalEntry entry = find(id);
-		checkOwner(entry, input.userId());
+		checkOwner(entry, userId);
 		if (!entry.getGameId().equals(input.gameId())) {
 			throw new IllegalArgumentException("Não é possível mover a atualização para outro jogo");
 		}
@@ -106,7 +107,7 @@ public class JournalService {
 
 	private void checkOwner(JournalEntry entry, Long userId) {
 		if (!entry.getUser().getId().equals(userId)) {
-			throw new IllegalArgumentException("Só o dono do diário pode alterar esta atualização");
+			throw new ForbiddenException("Só o dono do diário pode alterar esta atualização");
 		}
 	}
 

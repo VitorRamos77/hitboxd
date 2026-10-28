@@ -15,7 +15,6 @@ public final class GameListDtos {
 	}
 
 	public record ListInput(
-			@NotNull @Positive Long ownerId,
 			@NotBlank @Size(max = 100) String title,
 			@Size(max = 1000) String description,
 			boolean ranked,

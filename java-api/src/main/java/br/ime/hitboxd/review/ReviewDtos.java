@@ -19,7 +19,6 @@ public final class ReviewDtos {
 	}
 
 	public record ReviewInput(
-			@NotNull @Positive Long userId,
 			@NotNull @Positive Long gameId,
 			@DecimalMin("0.5") @DecimalMax("5.0") Double rating,
 			boolean liked,

@@ -9,6 +9,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.ime.hitboxd.common.ForbiddenException;
 import br.ime.hitboxd.common.NotFoundException;
 import br.ime.hitboxd.review.ReviewDtos.ReviewInput;
 import br.ime.hitboxd.review.ReviewDtos.ReviewView;
@@ -60,25 +61,34 @@ public class ReviewService {
 	}
 
 	@Transactional
-	public ReviewView create(ReviewInput input) {
-		Review review = new Review(users.find(input.userId()), input.gameId());
+	public ReviewView create(Long authorId, ReviewInput input) {
+		Review review = new Review(users.find(authorId), input.gameId());
 		apply(review, input);
 		return ReviewView.of(reviews.save(review));
 	}
 
 	@Transactional
-	public ReviewView update(Long id, ReviewInput input) {
+	public ReviewView update(Long id, Long authorId, ReviewInput input) {
 		Review review = find(id);
-		if (!review.getUser().getId().equals(input.userId()) || !review.getGameId().equals(input.gameId())) {
-			throw new IllegalArgumentException("Só é possível editar a própria entrada do mesmo jogo");
+		checkAuthor(review, authorId);
+		if (!review.getGameId().equals(input.gameId())) {
+			throw new IllegalArgumentException("Não é possível mover a avaliação para outro jogo");
 		}
 		apply(review, input);
 		return ReviewView.of(review);
 	}
 
 	@Transactional
-	public void delete(Long id) {
-		reviews.delete(find(id));
+	public void delete(Long id, Long authorId) {
+		Review review = find(id);
+		checkAuthor(review, authorId);
+		reviews.delete(review);
+	}
+
+	private void checkAuthor(Review review, Long userId) {
+		if (!review.getUser().getId().equals(userId)) {
+			throw new ForbiddenException("Só o autor pode alterar esta avaliação");
+		}
 	}
 
 	/** Alterna a curtida do usuário: a primeira chamada curte, a segunda descurte. */

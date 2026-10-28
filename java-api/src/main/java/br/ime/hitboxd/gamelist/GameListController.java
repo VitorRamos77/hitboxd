@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.ime.hitboxd.auth.AuthUser;
+import br.ime.hitboxd.auth.CurrentUser;
 import br.ime.hitboxd.gamelist.GameListDtos.AddGame;
 import br.ime.hitboxd.gamelist.GameListDtos.ListInput;
 import br.ime.hitboxd.gamelist.GameListDtos.ListView;
@@ -42,28 +44,28 @@ public class GameListController {
 
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
-	public ListView create(@Valid @RequestBody ListInput input) {
-		return service.create(input);
+	public ListView create(@CurrentUser AuthUser me, @Valid @RequestBody ListInput input) {
+		return service.create(me.id(), input);
 	}
 
 	@PutMapping("/{id}")
-	public ListView update(@PathVariable Long id, @Valid @RequestBody ListInput input) {
-		return service.update(id, input);
+	public ListView update(@CurrentUser AuthUser me, @PathVariable Long id, @Valid @RequestBody ListInput input) {
+		return service.update(id, me.id(), input);
 	}
 
 	@DeleteMapping("/{id}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
-	public void delete(@PathVariable Long id) {
-		service.delete(id);
+	public void delete(@CurrentUser AuthUser me, @PathVariable Long id) {
+		service.delete(id, me.id());
 	}
 
 	@PostMapping("/{id}/games")
-	public ListView addGame(@PathVariable Long id, @Valid @RequestBody AddGame body) {
-		return service.addGame(id, body.gameId());
+	public ListView addGame(@CurrentUser AuthUser me, @PathVariable Long id, @Valid @RequestBody AddGame body) {
+		return service.addGame(id, me.id(), body.gameId());
 	}
 
 	@DeleteMapping("/{id}/games/{gameId}")
-	public ListView removeGame(@PathVariable Long id, @PathVariable Long gameId) {
-		return service.removeGame(id, gameId);
+	public ListView removeGame(@CurrentUser AuthUser me, @PathVariable Long id, @PathVariable Long gameId) {
+		return service.removeGame(id, me.id(), gameId);
 	}
 }

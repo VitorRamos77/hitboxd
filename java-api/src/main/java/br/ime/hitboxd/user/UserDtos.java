@@ -4,18 +4,11 @@ import java.time.Instant;
 import java.util.List;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public final class UserDtos {
 
 	private UserDtos() {
-	}
-
-	public record CreateUser(
-			@NotBlank @Pattern(regexp = "^[a-zA-Z0-9_]{3,30}$", message = "use 3 a 30 letras, números ou _") String username,
-			@NotBlank @Size(max = 60) String displayName,
-			@Size(max = 280) String bio) {
 	}
 
 	public record UpdateUser(@NotBlank @Size(max = 60) String displayName, @Size(max = 280) String bio) {
@@ -42,5 +35,15 @@ public final class UserDtos {
 			long listsCreated,
 			List<UserSummary> following,
 			long followers) {
+	}
+
+	/** Os dados da própria conta, que só o dono vê. */
+	public record Me(UserSummary user, String email, boolean emailVerified, boolean hasPassword,
+			boolean googleLinked, boolean admin) {
+
+		public static Me of(User user, boolean admin) {
+			return new Me(UserSummary.of(user), user.getEmail(), user.isEmailVerified(), user.getPasswordHash() != null,
+					user.getGoogleSub() != null, admin);
+		}
 	}
 }

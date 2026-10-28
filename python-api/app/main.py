@@ -3,6 +3,7 @@
 Também serve o frontend estático em "/".
 """
 
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 
@@ -11,17 +12,24 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import admin, recommender
+from . import admin, recommender, updater
 from .catalog import catalog
 from .images import ImageUnavailable, ShotSize, cover_path, screenshot_count, screenshot_path
 from .models import (AdminLogin, AdminSession, Game, GameCreate, GameStats, GameSummary, GameWithStats,
                      RecommendationResponse, Screenshot)
 from .social_client import SocialUnavailable, fetch_reviews
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    updater.start()  # atualização automática dos tempos do HowLongToBeat
+    yield
+
+
 app = FastAPI(
     title="hitBoxd — Catálogo",
     description="Catálogo de jogos, estatísticas da comunidade e recomendações.",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -86,6 +94,19 @@ def admin_session():
 @app.delete("/api/admin/session", status_code=204)
 def admin_logout(token: str = Depends(admin.require_admin)):
     admin.logout(token)
+
+
+@app.get("/api/admin/updates", dependencies=[Depends(admin.require_admin)])
+def update_status():
+    """Situação da atualização automática dos tempos do HowLongToBeat."""
+    return updater.status
+
+
+@app.post("/api/admin/updates/hltb", status_code=202, dependencies=[Depends(admin.require_admin)])
+def update_hltb_now():
+    """Pede uma atualização imediata; ela roda em segundo plano."""
+    updater.run_now()
+    return updater.status
 
 
 def _check_title(title: str, ignore_id: int | None = None) -> None:
@@ -163,6 +184,15 @@ def game_stats(game_id: int):
     except SocialUnavailable:
         reviews = []
     return recommender.stats_for(game_id, reviews)
+
+
+@app.get("/api/games/{game_id}/similar", response_model=list[GameSummary])
+def similar_games(game_id: int, limit: int = Query(6, ge=1, le=20)):
+    """Jogos parecidos: gêneros e desenvolvedora em comum e avaliações parecidas na comunidade."""
+    _game_or_404(game_id)
+    reviews, _ = _all_reviews()
+    stats = recommender.community_stats(reviews)
+    return [recommender.with_stats(g, stats) for g, _ in recommender.similar(game_id, catalog.all(), reviews, limit)]
 
 
 @app.get("/api/genres", response_model=list[str])

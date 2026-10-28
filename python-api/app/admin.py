@@ -1,8 +1,10 @@
 """Login do administrador, o único que pode adicionar e editar jogos.
 
-As credenciais vêm das variáveis de ambiente ADMIN_USERNAME (padrão "admin")
-e ADMIN_PASSWORD. Sem ADMIN_PASSWORD, uma senha aleatória é gerada a cada
-inicialização e mostrada no terminal, para que nunca exista uma senha padrão.
+Há dois jeitos de ser admin:
+- o login próprio do admin, com ADMIN_USERNAME (padrão "admin") e ADMIN_PASSWORD.
+  Sem ADMIN_PASSWORD esse login fica desativado: não existe senha padrão;
+- entrar no site com uma conta administradora (e-mail em ADMIN_EMAILS no
+  serviço Java, confirmado pelo Google).
 """
 
 import hmac
@@ -10,10 +12,11 @@ import logging
 import os
 import secrets
 import time
-from pathlib import Path
 from threading import Lock
 
 from fastapi import Header, HTTPException
+
+from .social_client import is_admin_session
 
 log = logging.getLogger("uvicorn.error")
 
@@ -22,14 +25,8 @@ FAILURE_DELAY = 1.0  # atraso após senha errada, para dificultar tentativa e er
 
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD") or ""
-PASSWORD_FILE = Path(__file__).resolve().parents[1] / ".cache" / "admin-password.txt"
 if not ADMIN_PASSWORD:
-    ADMIN_PASSWORD = secrets.token_urlsafe(12)
-    # também fica num arquivo local (a pasta .cache é ignorada pelo git), para quem não vê o terminal
-    PASSWORD_FILE.parent.mkdir(parents=True, exist_ok=True)
-    PASSWORD_FILE.write_text(ADMIN_PASSWORD + "\n", encoding="utf-8")
-    log.warning("ADMIN_PASSWORD nao definida. Senha do admin %r nesta execucao: %s (salva em %s)",
-                ADMIN_USERNAME, ADMIN_PASSWORD, PASSWORD_FILE)
+    log.warning("ADMIN_PASSWORD nao definida: login proprio do admin desativado (contas em ADMIN_EMAILS continuam admin).")
 
 _sessions: dict[str, float] = {}  # token -> expira em (time.monotonic)
 _lock = Lock()
@@ -37,6 +34,8 @@ _lock = Lock()
 
 def login(username: str, password: str) -> tuple[str, int]:
     """Devolve (token, validade em segundos) ou lança 401."""
+    if not ADMIN_PASSWORD:
+        raise HTTPException(503, "Área do administrador desativada: defina a variável ADMIN_PASSWORD")
     ok_user = hmac.compare_digest(username.encode(), ADMIN_USERNAME.encode())
     ok_pass = hmac.compare_digest(password.encode(), ADMIN_PASSWORD.encode())
     if not (ok_user and ok_pass):
@@ -57,12 +56,17 @@ def logout(token: str) -> None:
 
 
 def require_admin(authorization: str | None = Header(default=None)) -> str:
-    """Dependência das rotas de escrita: exige 'Authorization: Bearer <token>' válido."""
+    """Dependência das rotas de escrita. Aceita 'Authorization: Bearer <token>' com:
+    - o token do login de admin (usuário e senha do ADMIN_PASSWORD); ou
+    - a sessão de uma conta administradora do site (e-mail em ADMIN_EMAILS,
+      confirmado pelo Google), conferida no serviço Java.
+    """
     token = authorization.removeprefix("Bearer ").strip() if authorization else ""
     with _lock:
         expires = _sessions.get(token)
-        if expires is None or expires < time.monotonic():
-            _sessions.pop(token, None)
-            raise HTTPException(401, "Sessão de administrador inválida ou expirada",
-                                headers={"WWW-Authenticate": "Bearer"})
-    return token
+        if expires is not None and expires >= time.monotonic():
+            return token
+        _sessions.pop(token, None)
+    if token and is_admin_session(token):
+        return token
+    raise HTTPException(401, "Sessão de administrador inválida ou expirada", headers={"WWW-Authenticate": "Bearer"})

@@ -10,10 +10,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import br.ime.hitboxd.auth.AuthUser;
+import br.ime.hitboxd.auth.CurrentUser;
 import br.ime.hitboxd.journal.JournalDtos.EntryInput;
 import br.ime.hitboxd.journal.JournalDtos.EntryView;
 import br.ime.hitboxd.journal.JournalDtos.JournalGame;
@@ -43,18 +44,18 @@ public class JournalController {
 
 	@PostMapping("/journal")
 	@ResponseStatus(HttpStatus.CREATED)
-	public EntryView create(@Valid @RequestBody EntryInput input) {
-		return service.create(input);
+	public EntryView create(@CurrentUser AuthUser me, @Valid @RequestBody EntryInput input) {
+		return service.create(me.id(), input);
 	}
 
 	@PutMapping("/journal/{id}")
-	public EntryView update(@PathVariable Long id, @Valid @RequestBody EntryInput input) {
-		return service.update(id, input);
+	public EntryView update(@CurrentUser AuthUser me, @PathVariable Long id, @Valid @RequestBody EntryInput input) {
+		return service.update(id, me.id(), input);
 	}
 
 	@DeleteMapping("/journal/{id}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
-	public void delete(@PathVariable Long id, @RequestParam Long userId) {
-		service.delete(id, userId);
+	public void delete(@CurrentUser AuthUser me, @PathVariable Long id) {
+		service.delete(id, me.id());
 	}
 }
