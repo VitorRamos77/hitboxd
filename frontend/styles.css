@@ -50,7 +50,21 @@ h1, h2, h3 { font-family: var(--font-display); line-height: 1.2; margin: 0; }
 .nav a { padding: 6px 12px; border-radius: 6px; color: var(--text-dim); font-weight: 500; }
 .nav a:hover { color: var(--text); background: var(--bg-raised); }
 .nav a.active { color: var(--text); background: var(--bg-raised); }
-.search { margin-left: auto; }
+.search { margin-left: auto; position: relative; }
+.search-suggestions { position: absolute; top: calc(100% + 6px); left: 0; width: min(max(100%, 340px), calc(100vw - 32px)); max-height: 70vh; overflow-y: auto; background: var(--bg-raised); border: 1px solid var(--line); border-radius: 12px; padding: 6px; box-shadow: 0 16px 40px rgba(0, 0, 0, .5); z-index: 40; }
+.suggest-group { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--text-faint); padding: 8px 10px 4px; }
+.suggest-divider { border-top: 1px solid var(--line); margin: 6px 4px; }
+.suggest-empty { padding: 10px; color: var(--text-dim); font-size: 14px; }
+.suggestion { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: var(--text); }
+.suggestion b { display: block; font-size: 14px; font-weight: 600; line-height: 1.25; }
+.suggestion .faint { display: block; font-size: 12px; }
+.suggestion mark { background: none; color: var(--accent); }
+.suggestion:hover, .suggestion[aria-selected=true] { background: var(--bg-sunken); color: var(--text); }
+.suggest-all { font-size: 14px; color: var(--accent); padding: 2px 0; }
+.cover.tiny { width: 32px; flex: none; padding: 0; border-radius: 4px; }
+.cover.tiny .cover-title, .cover.tiny .cover-year, .cover.tiny::before, .cover.tiny::after { display: none; }
+.people-search { width: 100%; max-width: 480px; background: var(--bg-raised); border: 1px solid var(--line); border-radius: 999px; padding: 10px 16px; margin: 8px 0 4px; font-size: 16px; }
+.accent-link { color: var(--accent); font-weight: 600; }
 .search input { background: var(--bg-raised); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; width: 200px; }
 .session { display: flex; align-items: center; gap: 8px; }
 .account { position: relative; }
@@ -166,12 +180,14 @@ a:hover .cover { transform: translateY(-3px); box-shadow: 0 0 0 2px var(--accent
 }
 .rating-value { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 .liked { color: var(--hit); }
-.star-input { display: inline-flex; gap: 2px; }
-.star-input button { position: relative; width: 30px; height: 30px; padding: 0; border: 0; background: none; cursor: pointer; font-size: 28px; line-height: 30px; color: var(--line); }
-.star-input button .fill { position: absolute; inset: 0; overflow: hidden; color: var(--star); pointer-events: none; }
-.star-input .half-hit { position: absolute; top: 0; bottom: 0; width: 50%; }
-.star-input .half-hit.left { left: 0; }
-.star-input .half-hit.right { right: 0; }
+.star-input-wrap { display: inline-flex; align-items: center; gap: 10px; }
+.star-input { display: inline-flex; gap: 2px; border-radius: 6px; cursor: pointer; user-select: none; }
+.star-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.star-input .star { position: relative; display: block; width: 30px; height: 30px; font-size: 30px; line-height: 30px; text-align: center; color: var(--line); }
+/* camada dourada do mesmo tamanho, recortada pela direita: a meia estrela fica exatamente sobre a cinza */
+.star-input .fill { position: absolute; inset: 0; color: var(--star); clip-path: inset(0 calc(100% - var(--fill, 0%)) 0 0); pointer-events: none; }
+.star-value { min-width: 4.5em; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+.star-clear { font-size: 13px; }
 
 /* ---------- jogo ---------- */
 .game-head { display: grid; grid-template-columns: 230px 1fr; gap: 32px; }
@@ -218,7 +234,16 @@ a:hover .cover { transform: translateY(-3px); box-shadow: 0 0 0 2px var(--accent
 .review-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; }
 .review-head .who { font-weight: 600; }
 .review-game { font-family: var(--font-display); font-weight: 700; font-size: 17px; }
-.review-text { margin: 6px 0; white-space: pre-line; }
+.review-text { margin: 6px 0; }
+/* texto escrito pelos usuários: mantém as quebras de linha e quebra palavras enormes */
+.user-text, .review-text, .journal-entry-body p, .game-description, .audience p { white-space: pre-line; overflow-wrap: anywhere; }
+.review-text.clamped { display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+.read-more { font-size: 13px; margin: -2px 0 6px; color: var(--accent); }
+.char-count { justify-self: end; font-size: 12px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.char-count.near { color: var(--star); font-weight: 600; }
+.journal-composer .char-count { margin-top: -6px; }
+/* as caixas crescem com o texto (onde o navegador suporta), até metade da tela */
+textarea { field-sizing: content; max-height: 50vh; }
 .review-foot { display: flex; gap: 14px; font-size: 13px; color: var(--text-faint); align-items: center; }
 .like-btn { background: none; border: 0; padding: 0; cursor: pointer; color: var(--text-faint); font-variant-numeric: tabular-nums; }
 .like-btn:hover { color: var(--hit); }
@@ -345,6 +370,7 @@ img.avatar { object-fit: cover; background: var(--bg-raised); }
 .modal h2 { font-size: 22px; margin-bottom: 4px; }
 .form { display: grid; gap: 14px; margin-top: 18px; }
 .form label { display: grid; gap: 5px; font-size: 13px; color: var(--text-dim); }
+.form .field { display: grid; gap: 5px; font-size: 13px; color: var(--text-dim); align-content: start; }
 .form input[type=text], .form input[type=date], .form select, .form textarea { background: var(--bg-sunken); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; color: var(--text); }
 .form textarea { min-height: 120px; resize: vertical; }
 .form .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

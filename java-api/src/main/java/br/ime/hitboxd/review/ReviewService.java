@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.ime.hitboxd.common.ForbiddenException;
 import br.ime.hitboxd.common.NotFoundException;
+import br.ime.hitboxd.common.Texts;
 import br.ime.hitboxd.review.ReviewDtos.ReviewInput;
 import br.ime.hitboxd.review.ReviewDtos.ReviewView;
 import br.ime.hitboxd.user.User;
@@ -105,7 +106,7 @@ public class ReviewService {
 		}
 		review.setRating(input.rating());
 		review.setLiked(input.liked());
-		review.setText(input.text() == null || input.text().isBlank() ? null : input.text().strip());
+		review.setText(Texts.clean(input.text()));
 		review.setStatus(input.status() == null ? PlayStatus.JOGADO : input.status());
 		review.setPlatform(input.platform());
 		review.setPlayedOn(input.playedOn() == null ? LocalDate.now() : input.playedOn());

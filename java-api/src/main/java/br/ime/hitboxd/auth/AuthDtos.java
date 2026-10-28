@@ -2,6 +2,7 @@ package br.ime.hitboxd.auth;
 
 import java.time.Instant;
 
+import br.ime.hitboxd.common.Texts;
 import br.ime.hitboxd.user.UserDtos.UserSummary;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -18,7 +19,7 @@ public final class AuthDtos {
 			@NotBlank @Size(max = 60) String displayName,
 			@NotBlank @Size(min = 8, max = 72, message = "a senha deve ter de 8 a 72 caracteres") String password,
 			@Email @Size(max = 254) String email,
-			@Size(max = 280) String bio) {
+			@Size(max = Texts.BIO_MAX) String bio) {
 	}
 
 	public record Login(@NotBlank String username, @NotBlank String password) {

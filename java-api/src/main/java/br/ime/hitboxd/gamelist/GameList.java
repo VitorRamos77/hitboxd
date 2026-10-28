@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import br.ime.hitboxd.common.Texts;
 import br.ime.hitboxd.user.User;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -30,7 +31,7 @@ public class GameList {
 	@Column(nullable = false, length = 100)
 	private String title;
 
-	@Column(length = 1000)
+	@Column(length = Texts.LIST_DESCRIPTION_MAX)
 	private String description;
 
 	/** Lista ranqueada: a ordem dos jogos importa e é exibida numerada. */

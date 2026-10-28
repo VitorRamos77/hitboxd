@@ -3,6 +3,7 @@ package br.ime.hitboxd.user;
 import java.time.Instant;
 import java.util.List;
 
+import br.ime.hitboxd.common.Texts;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -11,7 +12,7 @@ public final class UserDtos {
 	private UserDtos() {
 	}
 
-	public record UpdateUser(@NotBlank @Size(max = 60) String displayName, @Size(max = 280) String bio) {
+	public record UpdateUser(@NotBlank @Size(max = 60) String displayName, @Size(max = Texts.BIO_MAX, message = "a bio pode ter até 280 caracteres") String bio) {
 	}
 
 	public record UserSummary(Long id, String username, String displayName, String avatarColor, Long avatarVersion) {

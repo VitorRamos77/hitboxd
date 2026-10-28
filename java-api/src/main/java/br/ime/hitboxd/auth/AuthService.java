@@ -19,6 +19,7 @@ import br.ime.hitboxd.auth.AuthDtos.Register;
 import br.ime.hitboxd.auth.AuthDtos.Session;
 import br.ime.hitboxd.auth.GoogleTokenVerifier.GoogleIdentity;
 import br.ime.hitboxd.common.ConflictException;
+import br.ime.hitboxd.common.Texts;
 import br.ime.hitboxd.common.UnauthorizedException;
 import br.ime.hitboxd.user.User;
 import br.ime.hitboxd.user.UserDtos.Me;
@@ -59,7 +60,7 @@ public class AuthService {
 		if (email != null && users.existsByEmailIgnoreCase(email)) {
 			throw new ConflictException("Já existe uma conta com esse e-mail");
 		}
-		User user = userService.newUser(input.username(), input.displayName().strip(), blankToNull(input.bio()));
+		User user = userService.newUser(input.username(), input.displayName().strip(), Texts.clean(input.bio()));
 		user.setPasswordHash(passwords.encode(input.password()));
 		user.setEmail(email == null ? null : email.toLowerCase(Locale.ROOT));
 		return issue(user);

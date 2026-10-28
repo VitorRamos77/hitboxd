@@ -24,7 +24,9 @@
         <a href="#/lists" data-nav="lists">Listas</a>
       </nav>
       <form class="search" id="search-form" role="search">
-        <input type="search" id="search-input" placeholder="Buscar jogos…" aria-label="Buscar jogos">
+        <input type="search" id="search-input" placeholder="Buscar jogos ou pessoas…" aria-label="Buscar jogos ou pessoas"
+          role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="search-suggestions" autocomplete="off">
+        <div class="search-suggestions" id="search-suggestions" role="listbox" aria-label="Sugestões" hidden></div>
       </form>
       <div class="session" id="session"></div>
     </div>

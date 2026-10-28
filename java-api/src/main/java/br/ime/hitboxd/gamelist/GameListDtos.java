@@ -3,6 +3,7 @@ package br.ime.hitboxd.gamelist;
 import java.time.Instant;
 import java.util.List;
 
+import br.ime.hitboxd.common.Texts;
 import br.ime.hitboxd.user.UserDtos.UserSummary;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -16,7 +17,7 @@ public final class GameListDtos {
 
 	public record ListInput(
 			@NotBlank @Size(max = 100) String title,
-			@Size(max = 1000) String description,
+			@Size(max = Texts.LIST_DESCRIPTION_MAX, message = "a descrição pode ter até 500 caracteres") String description,
 			boolean ranked,
 			List<@Positive Long> gameIds) {
 	}

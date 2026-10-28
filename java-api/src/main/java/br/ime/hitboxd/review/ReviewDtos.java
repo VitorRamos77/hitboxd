@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
+import br.ime.hitboxd.common.Texts;
 import br.ime.hitboxd.user.User;
 import br.ime.hitboxd.user.UserDtos.UserSummary;
 import jakarta.validation.constraints.DecimalMax;
@@ -22,7 +23,7 @@ public final class ReviewDtos {
 			@NotNull @Positive Long gameId,
 			@DecimalMin("0.5") @DecimalMax("5.0") Double rating,
 			boolean liked,
-			@Size(max = 4000) String text,
+			@Size(max = Texts.REVIEW_MAX, message = "a resenha pode ter até 2000 caracteres") String text,
 			PlayStatus status,
 			@Size(max = 40) String platform,
 			@PastOrPresent LocalDate playedOn,

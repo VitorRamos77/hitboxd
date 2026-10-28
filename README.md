@@ -37,12 +37,14 @@ monte listas e descubra o próximo jogo com recomendações baseadas nas suas av
 | | Recurso | Descrição |
 |---|---|---|
 | 🕹️ | **Catálogo de jogos** | Busca por título ou desenvolvedora, filtros por gênero e plataforma e ordenação por popularidade, nota, ano ou título. |
+| 🔎 | **Busca com sugestões** | Enquanto você digita no topo, aparece uma lista com jogos e pessoas (o trecho digitado fica destacado), navegável pelo teclado. Maiúsculas e acentos não importam. |
 | 📄 | **Página de cada jogo** | Capa, galeria de screenshots com ampliação, descrição, um texto "para quem é", os tempos do [HowLongToBeat](https://howlongtobeat.com) e jogos parecidos. |
 | ⭐ | **Avaliações** | Nota em meias estrelas, curtida, resenha (com aviso de spoiler), situação (jogando, zerado, platinado, abandonado), plataforma e data. A média aparece com estrelas proporcionais e o valor exato (ex.: **4,5**). |
 | 📓 | **Diário de jogo** | Um caderno para cada jogo que você está jogando: registre cada sessão com texto, dia e horas jogadas, quantas vezes quiser por dia. |
 | 📚 | **Listas** | Listas personalizadas e ranqueadas, como "Melhores RPGs" ou "Para jogar no sofá". |
 | 💡 | **Recomendações** | Calculadas a partir dos jogos que você avaliou: jogos parecidos com os que você gostou, pelo conteúdo e pela opinião da comunidade. |
-| 👥 | **Comunidade** | Seguir pessoas, feed com a atividade de quem você segue, curtidas em resenhas (curtir e descurtir) e popup de seguidores no perfil. |
+| 👥 | **Comunidade** | **Encontrar pessoas** por nome ou @usuário e segui-las, feed com a atividade de quem você segue, curtidas em resenhas (curtir e descurtir) e popup de seguidores no perfil. |
+| ✍️ | **Textos** | Resenhas, diário, bio e descrições têm limite de caracteres com contador, mantêm as quebras de linha e as resenhas longas aparecem com "Ler mais". |
 | 🔐 | **Contas** | Cadastro e login com usuário e senha ou **com a conta do Google**. Só o dono de cada conta altera os próprios dados. |
 | 🔄 | **Atualizações automáticas** | Os tempos do HowLongToBeat são atualizados sozinhos em segundo plano. |
 | 🛠️ | **Administrador** | Uma área protegida, onde só o admin adiciona e edita as páginas dos jogos. |
@@ -245,6 +247,25 @@ A mesma semelhança gera a seção **Jogos parecidos** de cada página (`GET /ap
 </details>
 
 <details>
+<summary><b>✍️ Limites de texto e busca</b></summary>
+
+<br>
+
+| Campo | Limite |
+|---|---|
+| Resenha | 2000 caracteres |
+| Atualização do diário | 2000 caracteres |
+| Descrição de lista | 500 caracteres |
+| Bio | 280 caracteres |
+| Resumo / descrição / "para quem é" do jogo (admin) | 200 / 2000 / 800 caracteres |
+
+Cada caixa de texto mostra um contador (ex.: `891/2000`), que fica em destaque perto do limite, e cresce conforme o texto. Os limites também são conferidos no servidor. Ao salvar, o Spring tira espaços no fim das linhas e junta várias linhas em branco seguidas numa só. As quebras de linha que você escreveu são mantidas na exibição, e palavras muito longas quebram em vez de estourar a tela.
+
+A busca do topo filtra os jogos e as pessoas já carregados no navegador, então as sugestões aparecem na hora. A página **Encontrar pessoas** (`/#/people`, também no menu da conta) usa `GET /api/users?q=`, que busca por nome ou @usuário sem diferenciar maiúsculas e acentos e mostra primeiro quem começa com o termo.
+
+</details>
+
+<details>
 <summary><b>🔄 Atualização automática dos tempos</b></summary>
 
 <br>
@@ -391,7 +412,7 @@ Os erros voltam como `{"detail": "mensagem"}`, com status `400`, `401`, `403`, `
 
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/api/users` | Lista os usuários |
+| GET | `/api/users?q=&limit=` | Lista os usuários; com `q`, busca por nome ou @usuário (sem diferenciar maiúsculas e acentos) |
 | GET | `/api/users/{id}` | Perfil com estatísticas |
 | PUT | `/api/users/{id}` | Edita nome e bio da própria conta 🔐 |
 | GET | `/api/users/{id}/avatar` | Foto de perfil |

@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.ime.hitboxd.common.ForbiddenException;
 import br.ime.hitboxd.common.NotFoundException;
+import br.ime.hitboxd.common.Texts;
 import br.ime.hitboxd.journal.JournalDtos.EntryInput;
 import br.ime.hitboxd.journal.JournalDtos.EntryView;
 import br.ime.hitboxd.journal.JournalDtos.JournalGame;
@@ -99,7 +100,11 @@ public class JournalService {
 	}
 
 	private void apply(JournalEntry entry, EntryInput input) {
-		entry.setText(input.text().strip());
+		String text = Texts.clean(input.text());
+		if (text == null) {
+			throw new IllegalArgumentException("Escreva algo sobre a sessão");
+		}
+		entry.setText(text);
 		entry.setPlayedOn(input.playedOn() == null ? LocalDate.now() : input.playedOn());
 		entry.setSessionHours(input.sessionHours());
 		entry.setSpoilers(input.spoilers());

@@ -3,6 +3,7 @@ package br.ime.hitboxd.journal;
 import java.time.Instant;
 import java.time.LocalDate;
 
+import br.ime.hitboxd.common.Texts;
 import br.ime.hitboxd.review.PlayStatus;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -19,7 +20,7 @@ public final class JournalDtos {
 
 	public record EntryInput(
 			@NotNull @Positive Long gameId,
-			@NotBlank @Size(max = 4000) String text,
+			@NotBlank @Size(max = Texts.JOURNAL_MAX, message = "a atualização pode ter até 2000 caracteres") String text,
 			@PastOrPresent LocalDate playedOn,
 			@DecimalMin("0.1") @DecimalMax("24") Double sessionHours,
 			boolean spoilers) {

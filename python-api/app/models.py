@@ -4,6 +4,12 @@ from typing import Annotated
 from pydantic import BaseModel, Field, computed_field
 
 
+# limites dos textos da página do jogo (o editor do admin mostra a contagem)
+SUMMARY_MAX = 200
+DESCRIPTION_MAX = 2000
+AUDIENCE_MAX = 800
+
+
 class HowLongToBeat(BaseModel):
     """Tempos médios em horas, segundo o howlongtobeat.com."""
 
@@ -26,10 +32,10 @@ class GameCreate(BaseModel):
     developer: str = Field(min_length=1, max_length=120)
     genres: list[str] = Field(default_factory=list)
     platforms: list[str] = Field(default_factory=list)
-    summary: str = ""
-    description: str = ""
+    summary: str = Field(default="", max_length=SUMMARY_MAX)
+    description: str = Field(default="", max_length=DESCRIPTION_MAX)
     # que tipo de jogador deve gostar do jogo
-    audience: str = ""
+    audience: str = Field(default="", max_length=AUDIENCE_MAX)
     # na Steam, a capa e as screenshots saem da loja; fora dela, use coverUrl e screenshotUrls
     steamAppId: int | None = Field(default=None, ge=1)
     screenshotUrls: list[Annotated[str, Field(max_length=500, pattern=r"^https://")]] = Field(default_factory=list, max_length=12)

@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.ime.hitboxd.common.ConflictException;
 import br.ime.hitboxd.common.NotFoundException;
+import br.ime.hitboxd.common.Texts;
 import br.ime.hitboxd.gamelist.GameListRepository;
 import br.ime.hitboxd.review.ReviewRepository;
 import br.ime.hitboxd.user.UserDtos.UpdateUser;
@@ -46,6 +47,25 @@ public class UserService {
 				.toList();
 	}
 
+	/**
+	 * Busca por nome ou @usuário, sem diferenciar maiúsculas e acentos. Quem tem o
+	 * termo no começo do nome ou do usuário aparece primeiro.
+	 */
+	public List<UserSummary> search(String query, int limit) {
+		String q = Texts.searchKey(query).replaceFirst("^@", "");
+		if (q.isEmpty()) {
+			return all().stream().limit(limit).toList();
+		}
+		return users.findAll().stream()
+				.filter(u -> Texts.searchKey(u.getUsername()).contains(q) || Texts.searchKey(u.getDisplayName()).contains(q))
+				.sorted(Comparator.comparing((User u) -> !(Texts.searchKey(u.getUsername()).startsWith(q)
+						|| Texts.searchKey(u.getDisplayName()).startsWith(q)))
+						.thenComparing(User::getDisplayName, String.CASE_INSENSITIVE_ORDER))
+				.limit(limit)
+				.map(UserSummary::of)
+				.toList();
+	}
+
 	public List<UserSummary> followers(Long id) {
 		find(id);
 		return users.findFollowers(id).stream().map(UserSummary::of).toList();
@@ -73,7 +93,7 @@ public class UserService {
 	public UserProfile update(Long id, UpdateUser input) {
 		User user = find(id);
 		user.setDisplayName(input.displayName());
-		user.setBio(input.bio());
+		user.setBio(Texts.clean(input.bio()));
 		return profile(id);
 	}
 

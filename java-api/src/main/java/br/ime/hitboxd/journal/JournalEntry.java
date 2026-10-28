@@ -3,6 +3,7 @@ package br.ime.hitboxd.journal;
 import java.time.Instant;
 import java.time.LocalDate;
 
+import br.ime.hitboxd.common.Texts;
 import br.ime.hitboxd.user.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -30,7 +31,7 @@ public class JournalEntry {
 	@Column(nullable = false)
 	private Long gameId;
 
-	@Column(nullable = false, length = 4000)
+	@Column(nullable = false, length = Texts.JOURNAL_MAX)
 	private String text;
 
 	/** Dia da sessão; pode ser anterior a hoje para registrar algo que ficou para trás. */

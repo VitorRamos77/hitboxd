@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.ime.hitboxd.common.ForbiddenException;
 import br.ime.hitboxd.common.NotFoundException;
+import br.ime.hitboxd.common.Texts;
 import br.ime.hitboxd.gamelist.GameListDtos.ListInput;
 import br.ime.hitboxd.gamelist.GameListDtos.ListView;
 import br.ime.hitboxd.user.UserService;
@@ -79,7 +80,7 @@ public class GameListService {
 	}
 
 	private void apply(GameList list, ListInput input) {
-		list.setDescription(input.description());
+		list.setDescription(Texts.clean(input.description()));
 		list.setRanked(input.ranked());
 		if (input.gameIds() != null) {
 			list.getGameIds().clear();

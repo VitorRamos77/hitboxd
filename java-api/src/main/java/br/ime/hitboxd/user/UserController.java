@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.ime.hitboxd.auth.AuthUser;
@@ -35,9 +36,11 @@ public class UserController {
 		this.service = service;
 	}
 
+	/** Todos os usuários, ou só os que combinam com {@code q} (nome ou @usuário). */
 	@GetMapping
-	public List<UserSummary> all() {
-		return service.all();
+	public List<UserSummary> all(@RequestParam(required = false) String q,
+			@RequestParam(defaultValue = "200") int limit) {
+		return q == null ? service.all() : service.search(q, Math.clamp(limit, 1, 200));
 	}
 
 	@GetMapping("/{id}")

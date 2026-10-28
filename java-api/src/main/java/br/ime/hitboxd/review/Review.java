@@ -7,6 +7,7 @@ import java.util.Set;
 
 import org.hibernate.annotations.BatchSize;
 
+import br.ime.hitboxd.common.Texts;
 import br.ime.hitboxd.user.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -43,7 +44,7 @@ public class Review {
 
 	private boolean liked;
 
-	@Column(length = 4000)
+	@Column(length = Texts.REVIEW_MAX)
 	private String text;
 
 	@Enumerated(EnumType.STRING)

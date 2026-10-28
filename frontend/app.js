@@ -164,6 +164,11 @@ function avatar(user, cls = "") {
   return `<span class="avatar ${cls}" style="background:${esc(user?.avatarColor || "#555")}">${esc(initial)}</span>`;
 }
 
+/** Resenhas compridas aparecem cortadas, com "Ler mais". */
+function isLong(text) {
+  return text.length > 420 || text.split("\n").length > 7;
+}
+
 /** Curtir é um interruptor: clicar curte, clicar de novo descurte. */
 function likeButton(review) {
   const liked = review.likedBy.includes(state.userId);
@@ -174,7 +179,8 @@ function likeButton(review) {
 function reviewItem(review, { showGame = true, showUser = true } = {}) {
   const game = state.games.get(review.gameId);
   const text = review.text
-    ? `<p class="review-text ${review.spoilers ? "spoiler" : ""}" ${review.spoilers ? 'title="Contém spoilers: clique para revelar"' : ""}>${esc(review.text)}</p>`
+    ? `<p class="review-text user-text ${review.spoilers ? "spoiler" : ""} ${isLong(review.text) ? "clamped" : ""}" ${review.spoilers ? 'title="Contém spoilers: clique para revelar"' : ""}>${esc(review.text)}</p>
+       ${isLong(review.text) ? '<button class="link-btn read-more" data-expand>Ler mais</button>' : ""}`
     : "";
   return `<article class="review">
     <a href="#/game/${review.gameId}">${cover(game, "mini")}</a>
@@ -218,6 +224,7 @@ function section(title, body, link = "") {
 // Páginas
 // ---------------------------------------------------------------------------
 async function homePage() {
+  const isCurrent = viewToken(); // se a pessoa já mudou de página, não desenha esta
   const user = currentUser();
   const [popular, feed, lists, recs] = await Promise.all([
     catalog("/api/games?sort=popular"),
@@ -236,13 +243,15 @@ async function homePage() {
     ? section("Recomendados para você", `<div class="grid">${recs.items.map((r) => gameCard(r.game)).join("")}</div>`)
     : "";
 
+  if (!isCurrent()) return;
   app.innerHTML = hero + recSection +
     section("Populares na comunidade",
       `<div class="grid">${popular.slice(0, 12).map((g) => gameCard(g)).join("")}</div>`,
       '<a href="#/games">ver todos →</a>') +
     `<div class="two-col">
       ${section(user && feed.length ? "Atividade de quem você segue" : "Atividade recente",
-        feed.length ? feed.map((r) => reviewItem(r)).join("") : '<div class="empty">Nenhuma atividade ainda.</div>')}
+        feed.length ? feed.map((r) => reviewItem(r)).join("") : '<div class="empty">Nenhuma atividade ainda.</div>',
+        '<a href="#/people">encontrar pessoas →</a>')}
       ${section("Listas recentes",
         lists.length ? `<div style="display:grid;gap:14px">${lists.slice(0, 3).map(listCard).join("")}</div>` : '<div class="empty">Nenhuma lista ainda.</div>',
         '<a href="#/lists">todas →</a>')}
@@ -250,6 +259,7 @@ async function homePage() {
 }
 
 async function gamesPage(params) {
+  const isCurrent = viewToken(); // se a pessoa já mudou de página, não desenha esta
   const [genres, platforms] = await Promise.all([catalog("/api/genres"), catalog("/api/platforms")]);
   const q = params.get("q") ?? "";
   const genre = params.get("genre") ?? "";
@@ -263,6 +273,7 @@ async function gamesPage(params) {
   const games = await catalog(`/api/games?${query}`);
 
   const option = (value, label, selected) => `<option value="${esc(value)}" ${value === selected ? "selected" : ""}>${esc(label)}</option>`;
+  if (!isCurrent()) return;
   app.innerHTML = `
     <h1 class="page-title">Jogos</h1>
     <p class="muted">${games.length} ${games.length === 1 ? "jogo" : "jogos"}${q ? ` para “${esc(q)}”` : ""}</p>
@@ -288,6 +299,7 @@ async function gamesPage(params) {
 }
 
 async function gamePage(id) {
+  const isCurrent = viewToken(); // se a pessoa já mudou de página, não desenha esta
   const [game, stats, reviews, lists] = await Promise.all([
     catalog(`/api/games/${id}`),
     catalog(`/api/games/${id}/stats`),
@@ -299,6 +311,7 @@ async function gamePage(id) {
   const mine = user ? reviews.filter((r) => r.userId === user.id) : [];
   const maxBucket = Math.max(1, ...Object.values(stats.distribution));
 
+  if (!isCurrent()) return;
   app.innerHTML = `
     <div class="game-head">
       <div>${cover(game, "big")}</div>
@@ -408,8 +421,10 @@ function openLightbox(shots, start, title) {
 }
 
 async function diaryPage(gameIdParam) {
+  const isCurrent = viewToken(); // se a pessoa já mudou de página, não desenha esta
   const user = currentUser();
   if (!user) {
+    if (!isCurrent()) return;
     app.innerHTML = `<h1 class="page-title">Diário</h1><div class="empty">Entre na sua conta para ver seu diário.</div>`;
     return;
   }
@@ -417,6 +432,7 @@ async function diaryPage(gameIdParam) {
   const gameId = gameIdParam ? Number(gameIdParam) : games[0]?.gameId;
 
   if (!gameId) {
+    if (!isCurrent()) return;
     app.innerHTML = `
       <h1 class="page-title">Diário</h1>
       <div class="empty">
@@ -471,6 +487,7 @@ async function diaryPage(gameIdParam) {
         </article>`).join("")}
     </div>`).join("");
 
+  if (!isCurrent()) return;
   app.innerHTML = `
     <div class="journal-layout">
       <aside class="journal-games" aria-label="Jogos do diário">
@@ -497,7 +514,7 @@ async function diaryPage(gameIdParam) {
 
         <form class="journal-composer" id="journal-form">
           <label class="sr-only" for="journal-text">Nova atualização</label>
-          <textarea id="journal-text" name="text" maxlength="4000" required placeholder="O que aconteceu nesta sessão?"></textarea>
+          <textarea id="journal-text" name="text" maxlength="2000" required placeholder="O que aconteceu nesta sessão?"></textarea>
           <div class="journal-composer-row">
             <label>Dia <input type="date" name="playedOn" value="${todayIso()}" max="${todayIso()}" required></label>
             <label>Horas jogadas <input type="number" name="sessionHours" min="0.1" max="24" step="any" placeholder="ex: 1,5"></label>
@@ -566,7 +583,7 @@ function journalEntryModal(entry, game) {
     <h2>Editar atualização</h2>
     <div class="muted">${esc(game?.title ?? "")}</div>
     <form class="form" id="entry-form">
-      <label>Texto <textarea name="text" maxlength="4000" required>${esc(entry.text)}</textarea></label>
+      <label>Texto <textarea name="text" maxlength="2000" required>${esc(entry.text)}</textarea></label>
       <div class="row">
         <label>Dia <input type="date" name="playedOn" value="${entry.playedOn}" max="${todayIso()}" required></label>
         <label>Horas jogadas <input type="number" name="sessionHours" min="0.1" max="24" step="any" value="${entry.sessionHours ?? ""}"></label>
@@ -619,22 +636,40 @@ function pickJournalGame() {
   });
 }
 
+/** Suas listas e as listas de quem você segue. */
 async function listsPage() {
-  const lists = await social("/api/lists");
+  const isCurrent = viewToken(); // se a pessoa já mudou de página, não desenha esta
   const user = currentUser();
-  const mine = user ? lists.filter((l) => l.owner.id === user.id) : [];
-  const others = user ? lists.filter((l) => l.owner.id !== user.id) : lists;
-  app.innerHTML = `
+  const header = `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
       <h1 class="page-title">Listas</h1>
       <button class="btn primary" id="new-list">+ Nova lista</button>
-    </div>
-    ${user ? section("Suas listas", mine.length ? `<div class="lists-grid">${mine.map(listCard).join("")}</div>` : '<div class="empty">Você ainda não criou listas.</div>') : ""}
-    ${section("Da comunidade", others.length ? `<div class="lists-grid">${others.map(listCard).join("")}</div>` : '<div class="empty">Nenhuma lista.</div>')}`;
+    </div>`;
+  if (!user) {
+    if (!isCurrent()) return;
+    app.innerHTML = header + `<div class="empty">Entre na sua conta para criar listas e ver as listas de quem você segue.</div>`;
+    document.getElementById("new-list").addEventListener("click", () => requireUser() && listModal());
+    return;
+  }
+
+  const [lists, profile] = await Promise.all([social("/api/lists"), social(`/api/users/${user.id}`)]);
+  const followed = new Set(profile.following.map((u) => u.id));
+  const mine = lists.filter((l) => l.owner.id === user.id);
+  const fromFollowed = lists.filter((l) => followed.has(l.owner.id));
+  const followedEmpty = followed.size
+    ? '<div class="empty">Quem você segue ainda não criou listas.</div>'
+    : '<div class="empty">Você ainda não segue ninguém. <a class="accent-link" href="#/people">Encontrar pessoas →</a></div>';
+
+  if (!isCurrent()) return;
+  app.innerHTML = header + `
+    ${section("Suas listas", mine.length ? `<div class="lists-grid">${mine.map(listCard).join("")}</div>` : '<div class="empty">Você ainda não criou listas.</div>')}
+    ${section("De quem você segue", fromFollowed.length ? `<div class="lists-grid">${fromFollowed.map(listCard).join("")}</div>` : followedEmpty,
+      '<a href="#/people">encontrar pessoas →</a>')}`;
   document.getElementById("new-list").addEventListener("click", () => requireUser() && listModal());
 }
 
 async function listPage(id) {
+  const isCurrent = viewToken(); // se a pessoa já mudou de página, não desenha esta
   const list = await social(`/api/lists/${id}`);
   const isOwner = list.owner.id === state.userId;
   const items = list.gameIds.map((gameId, i) => {
@@ -646,10 +681,11 @@ async function listPage(id) {
     </div>`;
   }).join("");
 
+  if (!isCurrent()) return;
   app.innerHTML = `
     <div class="faint"><a href="#/user/${list.owner.id}">${avatar(list.owner)} ${esc(list.owner.displayName)}</a> · criada em ${formatDate(list.createdAt)}</div>
     <h1 class="page-title" style="margin-top:10px">${esc(list.title)}</h1>
-    ${list.description ? `<p class="muted">${esc(list.description)}</p>` : ""}
+    ${list.description ? `<p class="muted user-text">${esc(list.description)}</p>` : ""}
     ${isOwner ? `<div class="game-actions" style="margin:0 0 24px"><button class="btn" id="edit-list">Editar</button><button class="btn danger" id="delete-list">Excluir lista</button></div>` : ""}
     ${items ? `<div class="grid">${items}</div>` : '<div class="empty">Lista vazia. Abra um jogo e use “Adicionar a uma lista”.</div>'}`;
 
@@ -679,6 +715,50 @@ function personCard(user, following, note = "") {
     <a href="#/user/${user.id}" class="member-link">${avatar(user)}<div><b>${esc(user.displayName)}</b><div class="faint">${note ? esc(note) : "@" + esc(user.username)}</div></div></a>
     ${followButton(user, following)}
   </div>`;
+}
+
+/** Encontrar pessoas: busca por nome ou @usuário, com botão de seguir em cada resultado. */
+async function peoplePage(params) {
+  const isCurrent = viewToken(); // se a pessoa já mudou de página, não desenha esta
+  const q = params.get("q") ?? "";
+  if (!isCurrent()) return;
+  app.innerHTML = `
+    <h1 class="page-title">Encontrar pessoas</h1>
+    <p class="muted">Siga outros jogadores para ver o que eles andam jogando no seu feed.</p>
+    <input type="search" class="people-search" id="people-search" value="${esc(q)}"
+      placeholder="Buscar por nome ou @usuário" aria-label="Buscar pessoas" autocomplete="off">
+    <div id="people-results"><div class="loading">Carregando…</div></div>`;
+
+  const input = document.getElementById("people-search");
+  const box = document.getElementById("people-results");
+  let iFollow = new Set();
+  if (state.userId) {
+    iFollow = new Set((await social(`/api/users/${state.userId}`)).following.map((u) => u.id));
+  }
+
+  const show = async (term) => {
+    const people = (await social(`/api/users?q=${encodeURIComponent(term)}&limit=60`))
+      .filter((u) => u.id !== state.userId);
+    if (box.isConnected) {
+      box.innerHTML = people.length
+        ? section(term ? `${people.length} ${people.length === 1 ? "pessoa encontrada" : "pessoas encontradas"}` : "Todos os membros",
+            `<div class="members">${people.map((u) => personCard(u, iFollow.has(u.id))).join("")}</div>`)
+        : `<div class="empty">Ninguém encontrado para “${esc(term)}”.</div>`;
+    }
+  };
+
+  let timer;
+  input.addEventListener("input", () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const term = input.value.trim();
+      // atualiza o endereço sem recarregar a página (o campo não perde o foco)
+      history.replaceState(null, "", term ? `#/people?q=${encodeURIComponent(term)}` : "#/people");
+      show(term);
+    }, 200);
+  });
+  await show(q);
+  if (!q) input.focus();
 }
 
 /** Popup com quem segue o perfil e quem ele segue, aberto pelos números do perfil. */
@@ -734,7 +814,8 @@ async function followModal(userId, tab = "followers") {
     ${list.length
       ? `<div class="members">${list.map((u) => personCard(u, iFollow.has(u.id), showFollowsMe(u) ? "segue você" : "")).join("")}</div>`
       : `<div class="empty">${esc(empty)}</div>`}
-    ${suggestions}`, (root) => {
+    ${suggestions}
+    <p style="margin:18px 0 0;text-align:center"><a class="accent-link" href="#/people">Encontrar mais pessoas →</a></p>`, (root) => {
     root.querySelectorAll("[data-follow-tab]").forEach((btn) =>
       btn.addEventListener("click", () => followModal(userId, btn.dataset.followTab)));
     // seguir/deixar de seguir pelo popup: atualiza o popup e a página por trás
@@ -762,6 +843,7 @@ async function toggleFollow(btn) {
 }
 
 async function userPage(id) {
+  const isCurrent = viewToken(); // se a pessoa já mudou de página, não desenha esta
   const [profile, diary, lists, followers] = await Promise.all([
     social(`/api/users/${id}`),
     social(`/api/users/${id}/diary`),
@@ -773,13 +855,14 @@ async function userPage(id) {
     .filter((r, i, all) => all.findIndex((x) => x.gameId === r.gameId) === i)
     .slice(0, 6);
 
+  if (!isCurrent()) return;
   app.innerHTML = `
     <div class="profile-head">
       ${avatar(profile, "big")}
       <div>
         <h1>${esc(profile.displayName)}</h1>
         <div class="faint">@${esc(profile.username)}</div>
-        ${profile.bio ? `<p class="muted" style="margin:6px 0 0">${esc(profile.bio)}</p>` : ""}
+        ${profile.bio ? `<p class="muted user-text" style="margin:6px 0 0">${esc(profile.bio)}</p>` : ""}
       </div>
       ${followButton(profile, iFollow)}
       <div class="profile-stats">
@@ -810,38 +893,72 @@ function openModal(html, onReady) {
   onReady?.(modalBody);
 }
 
+/**
+ * Nota de 0,5 a 5 em meias estrelas. A metade esquerda de cada estrela vale meia,
+ * a direita vale inteira; clicar de novo na mesma nota tira a nota.
+ * Pelo teclado: setas mudam meia estrela, Home/Delete tiram a nota, End dá 5.
+ */
 function starInput(initial) {
   let value = initial ?? null;
   const wrapper = document.createElement("div");
-  wrapper.className = "star-input";
-  wrapper.setAttribute("role", "radiogroup");
-  wrapper.setAttribute("aria-label", "Nota");
-  const draw = (shown) => {
-    wrapper.querySelectorAll(".fill").forEach((fill, i) => {
-      const portion = Math.max(0, Math.min(1, (shown ?? 0) - i));
-      fill.style.width = `${portion * 100}%`;
-    });
-  };
+  wrapper.className = "star-input-wrap";
+  wrapper.innerHTML = `
+    <div class="star-input" role="slider" tabindex="0" aria-label="Nota" aria-valuemin="0" aria-valuemax="5"></div>
+    <span class="star-value" aria-hidden="true"></span>
+    <button type="button" class="link-btn star-clear">limpar</button>`;
+  const stars = wrapper.querySelector(".star-input");
+  const label = wrapper.querySelector(".star-value");
+  const clear = wrapper.querySelector(".star-clear");
+
   for (let i = 0; i < 5; i++) {
-    const star = document.createElement("button");
-    star.type = "button";
-    star.innerHTML = `★<span class="fill">★</span><span class="half-hit left"></span><span class="half-hit right"></span>`;
-    star.setAttribute("aria-label", `${i + 1} estrela${i ? "s" : ""}`);
-    star.addEventListener("mousemove", (e) => {
-      const half = e.offsetX < star.clientWidth / 2 ? 0.5 : 1;
-      draw(i + half);
-    });
-    star.addEventListener("click", (e) => {
-      const half = e.detail === 0 || e.offsetX >= star.clientWidth / 2 ? 1 : 0.5;
-      const next = i + half;
-      value = value === next ? null : next; // clicar de novo na mesma nota remove
-      draw(value);
-      wrapper.dispatchEvent(new Event("change"));
-    });
-    wrapper.appendChild(star);
+    const star = document.createElement("span");
+    star.className = "star";
+    star.innerHTML = '★<span class="fill" aria-hidden="true">★</span>';
+    stars.appendChild(star);
   }
-  wrapper.addEventListener("mouseleave", () => draw(value));
-  draw(value);
+  const starEls = [...stars.children];
+
+  // pinta cada estrela recortando a camada dourada: o desenho não sai do lugar
+  const draw = (shown) => {
+    starEls.forEach((star, i) => {
+      const portion = Math.max(0, Math.min(1, (shown ?? 0) - i));
+      star.style.setProperty("--fill", `${portion * 100}%`);
+    });
+    label.textContent = shown ? formatRating(shown) : "sem nota";
+  };
+  const set = (next) => {
+    value = next ? Math.max(0.5, Math.min(5, next)) : null;
+    stars.setAttribute("aria-valuenow", value ?? 0);
+    stars.setAttribute("aria-valuetext", value ? `${formatRating(value)} de 5 estrelas` : "sem nota");
+    clear.hidden = !value;
+    draw(value);
+    wrapper.dispatchEvent(new Event("change"));
+  };
+  // a posição é medida na estrela inteira (não no elemento sob o mouse)
+  const pointed = (e) => {
+    const star = e.target.closest(".star");
+    if (!star) return null;
+    const rect = star.getBoundingClientRect();
+    return starEls.indexOf(star) + (e.clientX - rect.left < rect.width / 2 ? 0.5 : 1);
+  };
+
+  stars.addEventListener("mousemove", (e) => { const v = pointed(e); if (v) draw(v); });
+  stars.addEventListener("mouseleave", () => draw(value));
+  stars.addEventListener("click", (e) => {
+    const v = pointed(e);
+    if (v) set(v === value ? null : v);
+  });
+  stars.addEventListener("keydown", (e) => {
+    const steps = { ArrowRight: 0.5, ArrowUp: 0.5, ArrowLeft: -0.5, ArrowDown: -0.5 };
+    if (e.key in steps) set((value ?? 0) + steps[e.key]);
+    else if (e.key === "Home" || e.key === "Delete" || e.key === "Backspace") set(null);
+    else if (e.key === "End") set(5);
+    else return;
+    e.preventDefault();
+  });
+  clear.addEventListener("click", () => { set(null); stars.focus(); });
+
+  set(value);
   return { element: wrapper, get value() { return value; } };
 }
 
@@ -864,14 +981,15 @@ function logModal(game, entry = null) {
       </div>
       <div class="row">
         <label>Plataforma <select name="platform">${platformOptions}</select></label>
-        <label>Nota <span id="stars-slot"></span></label>
+        <!-- não é <label>: um clique dentro de label é repassado ao primeiro botão e apagava a nota -->
+        <div class="field"><span>Nota</span><div id="stars-slot"></div></div>
       </div>
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
         <button type="button" class="like-toggle" id="like-toggle" aria-pressed="${entry?.liked ?? false}">♥ Curti</button>
         <label class="check"><input type="checkbox" name="replay" ${entry?.replay ? "checked" : ""}> Rejogando</label>
         <label class="check"><input type="checkbox" name="spoilers" ${entry?.spoilers ? "checked" : ""}> Contém spoilers</label>
       </div>
-      <label>Resenha <textarea name="text" maxlength="4000" placeholder="O que achou?">${esc(entry?.text ?? "")}</textarea></label>
+      <label>Resenha <textarea name="text" maxlength="2000" placeholder="O que achou?">${esc(entry?.text ?? "")}</textarea></label>
       <div class="form-error" id="form-error"></div>
       <div class="form-actions">
         <button type="button" class="btn" data-close>Cancelar</button>
@@ -914,7 +1032,7 @@ function listModal(list = null) {
     <h2>${list ? "Editar lista" : "Nova lista"}</h2>
     <form class="form" id="list-form">
       <label>Título <input type="text" name="title" maxlength="100" required value="${esc(list?.title ?? "")}"></label>
-      <label>Descrição <textarea name="description" maxlength="1000" style="min-height:80px">${esc(list?.description ?? "")}</textarea></label>
+      <label>Descrição <textarea name="description" maxlength="500" style="min-height:80px">${esc(list?.description ?? "")}</textarea></label>
       <label class="check"><input type="checkbox" name="ranked" ${list?.ranked ? "checked" : ""}> Lista ranqueada (numerada)</label>
       <div class="form-error" id="form-error"></div>
       <div class="form-actions">
@@ -1232,7 +1350,9 @@ async function adminRequest(path, options = {}) {
 }
 
 async function adminPage() {
+  const isCurrent = viewToken(); // se a pessoa já mudou de página, não desenha esta
   if (!canAdmin()) {
+    if (!isCurrent()) return;
     app.innerHTML = `
       <div class="admin-login">
         <h1 class="page-title">Área do administrador</h1>
@@ -1272,6 +1392,7 @@ async function adminPage() {
       <a class="btn small primary" href="#/admin/game/${g.id}">Editar</a>
     </div>`).join("") || '<div class="empty">Nenhum jogo encontrado.</div>';
 
+  if (!isCurrent()) return;
   app.innerHTML = `
     <div class="admin-top">
       <div>
@@ -1328,6 +1449,7 @@ async function renderUpdateStatus() {
 const STEAM_COVER = (appId) => `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}/library_600x900.jpg`;
 
 async function adminGamePage(id) {
+  const isCurrent = viewToken(); // se a pessoa já mudou de página, não desenha esta
   if (!canAdmin()) {
     location.hash = "#/admin";
     return;
@@ -1339,6 +1461,7 @@ async function adminGamePage(id) {
   const h = game?.hltb;
   const v = (value) => esc(value ?? "");
 
+  if (!isCurrent()) return;
   app.innerHTML = `
     <a class="faint" href="#/admin">← Voltar à administração</a>
     <h1 class="page-title" style="margin-top:10px">${isNew ? "Adicionar jogo" : `Editar: ${esc(game.title)}`}</h1>
@@ -1354,9 +1477,9 @@ async function adminGamePage(id) {
           <label>Gêneros (separados por vírgula) <input type="text" name="genres" value="${v(game?.genres.join(", "))}" placeholder="RPG, Ação"></label>
           <label>Plataformas (separadas por vírgula) <input type="text" name="platforms" value="${v(game?.platforms.join(", "))}" placeholder="PC, Switch"></label>
         </div>
-        <label>Resumo (uma frase, aparece no topo da página) <textarea name="summary" style="min-height:60px">${v(game?.summary)}</textarea></label>
-        <label>Descrição <textarea name="description" style="min-height:120px">${v(game?.description)}</textarea></label>
-        <label>Para quem é <textarea name="audience" style="min-height:80px">${v(game?.audience)}</textarea></label>
+        <label>Resumo (uma frase, aparece no topo da página) <textarea name="summary" maxlength="200" style="min-height:60px">${v(game?.summary)}</textarea></label>
+        <label>Descrição <textarea name="description" maxlength="2000" style="min-height:120px">${v(game?.description)}</textarea></label>
+        <label>Para quem é <textarea name="audience" maxlength="800" style="min-height:80px">${v(game?.audience)}</textarea></label>
       </fieldset>
       <fieldset>
         <legend>Imagens</legend>
@@ -1468,6 +1591,7 @@ function renderSession() {
         <a role="menuitem" href="#/user/${user.id}">Meu perfil</a>
         <a role="menuitem" href="#/diary">Meu diário</a>
         <a role="menuitem" href="#/lists">Minhas listas</a>
+        <a role="menuitem" href="#/people">Encontrar pessoas</a>
         ${state.isAdmin ? '<a role="menuitem" href="#/admin">Administração</a>' : ""}
         <hr>
         <button role="menuitem" data-account="details">Dados da conta</button>
@@ -1539,9 +1663,19 @@ const routes = [
   [/^\/lists$/, () => listsPage()],
   [/^\/list\/(\d+)$/, ([, id]) => listPage(id)],
   [/^\/user\/(\d+)$/, ([, id]) => userPage(id)],
+  [/^\/people$/, (_, params) => peoplePage(params)],
   [/^\/admin$/, () => adminPage()],
   [/^\/admin\/game\/(new|\d+)$/, ([, id]) => adminGamePage(id)],
 ];
+
+/**
+ * Cada navegação ganha um número. Uma página que terminou de carregar depois
+ * de a pessoa ir para outra (corrida entre requisições) não se desenha por cima.
+ */
+function viewToken() {
+  const id = render.current;
+  return () => id === render.current;
+}
 
 async function render() {
   const [path, query = ""] = location.hash.replace(/^#/, "").split("?");
@@ -1582,15 +1716,160 @@ app.addEventListener("click", async (e) => {
     if (review) likeBtn.outerHTML = likeButton(review);
     return;
   }
+  const expand = e.target.closest("[data-expand]");
+  if (expand) {
+    const text = expand.previousElementSibling;
+    const open = text.classList.toggle("clamped") === false;
+    expand.textContent = open ? "Ler menos" : "Ler mais";
+    return;
+  }
   const spoiler = e.target.closest(".spoiler");
   if (spoiler) spoiler.classList.add("revealed");
 });
 
+// ---------------------------------------------------------------------------
+// Busca do topo com sugestões (jogos e pessoas) enquanto a pessoa digita
+// ---------------------------------------------------------------------------
+const searchInput = document.getElementById("search-input");
+const suggestBox = document.getElementById("search-suggestions");
+let suggestions = []; // [{ href, html }]
+let activeSuggestion = -1;
+
+/** Minúsculas e sem acentos, para "zelda" achar "Zelda" e "pokemon" achar "Pokémon". */
+function plain(text) {
+  return text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+}
+
+/** Destaca o trecho digitado dentro do texto. */
+function highlight(text, term) {
+  const at = plain(text).indexOf(plain(term));
+  if (at < 0 || !term) return esc(text);
+  return esc(text.slice(0, at)) + "<mark>" + esc(text.slice(at, at + term.length)) + "</mark>" + esc(text.slice(at + term.length));
+}
+
+function rankMatches(items, term, fields) {
+  const t = plain(term);
+  return items
+    .map((item) => {
+      const values = fields(item).map(plain);
+      const score = values.some((v) => v.startsWith(t)) ? 2 : values.some((v) => v.includes(` ${t}`)) ? 1
+        : values.some((v) => v.includes(t)) ? 0 : -1;
+      return { item, score };
+    })
+    .filter((x) => x.score >= 0)
+    .sort((a, b) => b.score - a.score);
+}
+
+function updateSuggestions() {
+  const term = searchInput.value.trim();
+  if (term.length < 1) return closeSuggestions();
+
+  const games = rankMatches([...state.games.values()], term, (g) => [g.title, g.developer])
+    .sort((a, b) => b.score - a.score || (b.item.reviewCount ?? 0) - (a.item.reviewCount ?? 0))
+    .slice(0, 5).map((x) => x.item);
+  const people = rankMatches(state.users.filter((u) => u.id !== state.userId), term.replace(/^@/, ""), (u) => [u.displayName, u.username])
+    .slice(0, 4).map((x) => x.item);
+
+  suggestions = [
+    ...games.map((g) => ({
+      group: "Jogos",
+      href: `#/game/${g.id}`,
+      html: `${cover(g, "tiny")}<span><b>${highlight(g.title, term)}</b><span class="faint">${g.year} · ${esc(g.developer)}</span></span>`,
+    })),
+    ...people.map((u) => ({
+      group: "Pessoas",
+      href: `#/user/${u.id}`,
+      html: `${avatar(u)}<span><b>${highlight(u.displayName, term)}</b><span class="faint">@${highlight(u.username, term.replace(/^@/, ""))}</span></span>`,
+    })),
+    { group: "", href: `#/games?q=${encodeURIComponent(term)}`, html: `<span class="suggest-all">Ver todos os jogos com “${esc(term)}”</span>` },
+    { group: "", href: `#/people?q=${encodeURIComponent(term)}`, html: `<span class="suggest-all">Procurar pessoas: “${esc(term)}”</span>` },
+  ];
+  activeSuggestion = -1;
+
+  let lastGroup = null;
+  suggestBox.innerHTML = suggestions.map((sug, i) => {
+    const heading = sug.group !== lastGroup && sug.group ? `<div class="suggest-group" role="presentation">${sug.group}</div>` : "";
+    const divider = sug.group !== lastGroup && !sug.group ? '<div class="suggest-divider" role="presentation"></div>' : "";
+    lastGroup = sug.group;
+    return `${heading}${divider}<a class="suggestion" role="option" id="suggestion-${i}" href="${sug.href}" aria-selected="false">${sug.html}</a>`;
+  }).join("");
+  if (!games.length && !people.length) {
+    suggestBox.insertAdjacentHTML("afterbegin", '<div class="suggest-empty">Nenhum jogo ou pessoa com esse nome.</div>');
+  }
+  suggestBox.hidden = false;
+  searchInput.setAttribute("aria-expanded", "true");
+}
+
+function closeSuggestions() {
+  suggestBox.hidden = true;
+  suggestBox.innerHTML = "";
+  suggestions = [];
+  activeSuggestion = -1;
+  searchInput.setAttribute("aria-expanded", "false");
+  searchInput.removeAttribute("aria-activedescendant");
+}
+
+function moveSuggestion(delta) {
+  if (!suggestions.length) return;
+  activeSuggestion = (activeSuggestion + delta + suggestions.length) % suggestions.length;
+  suggestBox.querySelectorAll(".suggestion").forEach((el, i) => {
+    el.setAttribute("aria-selected", i === activeSuggestion);
+    if (i === activeSuggestion) el.scrollIntoView({ block: "nearest" });
+  });
+  searchInput.setAttribute("aria-activedescendant", `suggestion-${activeSuggestion}`);
+}
+
+let suggestTimer;
+searchInput.addEventListener("input", () => {
+  clearTimeout(suggestTimer);
+  suggestTimer = setTimeout(updateSuggestions, 80);
+});
+searchInput.addEventListener("focus", () => searchInput.value.trim() && updateSuggestions());
+searchInput.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowDown") { e.preventDefault(); if (suggestBox.hidden) updateSuggestions(); moveSuggestion(1); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); moveSuggestion(-1); }
+  else if (e.key === "Escape") closeSuggestions();
+  else if (e.key === "Enter" && activeSuggestion >= 0) {
+    e.preventDefault();
+    location.hash = suggestions[activeSuggestion].href;
+    closeSuggestions();
+    searchInput.blur();
+  }
+});
+// clicar numa sugestão não pode tirar o foco antes do clique valer
+suggestBox.addEventListener("mousedown", (e) => e.preventDefault());
+suggestBox.addEventListener("click", (e) => {
+  if (e.target.closest(".suggestion")) {
+    closeSuggestions();
+    searchInput.blur();
+  }
+});
+searchInput.addEventListener("blur", () => setTimeout(closeSuggestions, 100));
+
 document.getElementById("search-form").addEventListener("submit", (e) => {
   e.preventDefault();
-  const q = document.getElementById("search-input").value.trim();
+  const q = searchInput.value.trim();
+  closeSuggestions();
   location.hash = q ? `#/games?q=${encodeURIComponent(q)}` : "#/games";
 });
+
+/** Mostra "123/2000" embaixo de cada caixa de texto com limite; fica em destaque perto do fim. */
+function attachCounter(field) {
+  if (field.dataset.counter) return;
+  field.dataset.counter = "on";
+  const counter = document.createElement("span");
+  counter.className = "char-count";
+  const update = () => {
+    const used = field.value.length;
+    counter.textContent = `${used}/${field.maxLength}`;
+    counter.classList.toggle("near", used >= field.maxLength * 0.9);
+  };
+  field.addEventListener("input", update);
+  field.after(counter);
+  update();
+}
+new MutationObserver(() => document.querySelectorAll("textarea[maxlength]").forEach(attachCounter))
+  .observe(document.body, { childList: true, subtree: true });
 
 modal.addEventListener("click", (e) => { if (e.target === modal) modal.close(); });
 lightbox.addEventListener("click", (e) => { if (e.target === lightbox) lightbox.close(); });
