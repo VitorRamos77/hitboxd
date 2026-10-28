@@ -6,15 +6,16 @@ Também serve o frontend estático em "/".
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import recommender
+from . import admin, recommender
 from .catalog import catalog
 from .images import ImageUnavailable, ShotSize, cover_path, screenshot_count, screenshot_path
-from .models import Game, GameCreate, GameStats, GameSummary, GameWithStats, RecommendationResponse, Screenshot
+from .models import (AdminLogin, AdminSession, Game, GameCreate, GameStats, GameSummary, GameWithStats,
+                     RecommendationResponse, Screenshot)
 from .social_client import SocialUnavailable, fetch_reviews
 
 app = FastAPI(
@@ -71,11 +72,39 @@ def list_games(
     return result
 
 
-@app.post("/api/games", response_model=Game, status_code=201)
-def create_game(data: GameCreate):
-    if any(g.title.lower() == data.title.lower() for g in catalog.all()):
+@app.post("/api/admin/login", response_model=AdminSession)
+def admin_login(data: AdminLogin):
+    token, ttl = admin.login(data.username, data.password)
+    return AdminSession(token=token, username=data.username, expiresIn=ttl)
+
+
+@app.get("/api/admin/session", status_code=204, dependencies=[Depends(admin.require_admin)])
+def admin_session():
+    """Só confirma que o token ainda vale (204) ou não (401)."""
+
+
+@app.delete("/api/admin/session", status_code=204)
+def admin_logout(token: str = Depends(admin.require_admin)):
+    admin.logout(token)
+
+
+def _check_title(title: str, ignore_id: int | None = None) -> None:
+    if any(g.title.lower() == title.lower() and g.id != ignore_id for g in catalog.all()):
         raise HTTPException(409, "Já existe um jogo com esse título")
+
+
+@app.post("/api/games", response_model=Game, status_code=201, dependencies=[Depends(admin.require_admin)])
+def create_game(data: GameCreate):
+    _check_title(data.title)
     return catalog.add(data)
+
+
+@app.put("/api/games/{game_id}", response_model=Game, dependencies=[Depends(admin.require_admin)])
+def update_game(game_id: int, data: GameCreate):
+    if not catalog.get(game_id):
+        raise HTTPException(404, "Jogo não encontrado")
+    _check_title(data.title, ignore_id=game_id)
+    return catalog.update(game_id, data)
 
 
 @app.get("/api/games/{game_id}", response_model=GameWithStats)

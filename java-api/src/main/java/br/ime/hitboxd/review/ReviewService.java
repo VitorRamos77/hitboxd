@@ -81,10 +81,11 @@ public class ReviewService {
 		reviews.delete(find(id));
 	}
 
+	/** Alterna a curtida do usuário: a primeira chamada curte, a segunda descurte. */
 	@Transactional
-	public ReviewView like(Long id) {
+	public ReviewView toggleLike(Long id, Long userId) {
 		Review review = find(id);
-		review.addLike();
+		review.toggleLike(users.find(userId));
 		return ReviewView.of(review);
 	}
 

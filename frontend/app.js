@@ -35,7 +35,7 @@ function esc(value) {
 }
 
 async function request(base, path, options = {}) {
-  const init = { ...options, headers: { ...(options.body ? { "Content-Type": "application/json" } : {}) } };
+  const init = { ...options, headers: { ...(options.body ? { "Content-Type": "application/json" } : {}), ...options.headers } };
   if (options.body && typeof options.body !== "string") init.body = JSON.stringify(options.body);
   let response;
   try {
@@ -49,7 +49,10 @@ async function request(base, path, options = {}) {
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     const detail = data?.detail;
-    throw new Error(typeof detail === "string" ? detail : `Erro ${response.status}`);
+    // erros de validação do FastAPI vêm como lista: mostra o primeiro
+    const message = typeof detail === "string" ? detail
+      : Array.isArray(detail) ? `${detail[0].loc?.slice(-1)[0] ?? "campo"}: ${detail[0].msg}` : `Erro ${response.status}`;
+    throw Object.assign(new Error(message), { status: response.status });
   }
   return data;
 }
@@ -144,6 +147,13 @@ function avatar(user, cls = "") {
   return `<span class="avatar ${cls}" style="background:${esc(user?.avatarColor || "#555")}">${esc(initial)}</span>`;
 }
 
+/** Curtir é um interruptor: clicar curte, clicar de novo descurte. */
+function likeButton(review) {
+  const liked = review.likedBy.includes(state.userId);
+  return `<button class="like-btn" data-like-review="${review.id}" aria-pressed="${liked}"
+    title="${liked ? "Descurtir" : "Curtir"} esta resenha">${liked ? "♥" : "♡"} ${review.likeCount}</button>`;
+}
+
 function reviewItem(review, { showGame = true, showUser = true } = {}) {
   const game = state.games.get(review.gameId);
   const text = review.text
@@ -164,7 +174,7 @@ function reviewItem(review, { showGame = true, showUser = true } = {}) {
       <div class="review-foot">
         <span>jogou em ${formatDate(review.playedOn)}</span>
         ${review.platform ? `<span>${esc(review.platform)}</span>` : ""}
-        <button class="link-btn" data-like-review="${review.id}">♥ ${review.likeCount}</button>
+        ${likeButton(review)}
         <span>${timeAgo(review.createdAt)}</span>
       </div>
     </div>
@@ -247,7 +257,6 @@ async function gamesPage(params) {
         ${option("popular", "Mais populares", sort)}${option("rating", "Melhor avaliados", sort)}
         ${option("year", "Mais recentes", sort)}${option("title", "Título (A–Z)", sort)}
       </select>
-      <button class="btn" type="button" id="new-game">+ Adicionar jogo</button>
     </form>
     ${games.length ? `<div class="grid">${games.map((g) => gameCard(g)).join("")}</div>` : '<div class="empty">Nenhum jogo encontrado.</div>'}`;
 
@@ -259,7 +268,6 @@ async function gamesPage(params) {
   };
   form.addEventListener("change", apply);
   form.addEventListener("submit", (e) => { e.preventDefault(); apply(); });
-  document.getElementById("new-game").addEventListener("click", () => newGameModal(genres));
 }
 
 async function gamePage(id) {
@@ -286,6 +294,7 @@ async function gamePage(id) {
         <div class="game-actions">
           <button class="btn primary" id="log-game">${mine.length ? "★ Avaliar de novo" : "★ Avaliar jogo"}</button>
           <a class="btn" href="#/diary/${game.id}">📓 Diário do jogo</a>
+          ${state.adminToken ? `<a class="btn admin-edit" href="#/admin/game/${game.id}">✎ Editar página</a>` : ""}
           <button class="btn" id="add-to-list">Adicionar a uma lista</button>
           ${mine.length ? `<span class="muted">Sua nota: ${stars(mine[0].rating) || "—"} ${mine[0].liked ? '<span class="liked">♥</span>' : ""}</span>` : ""}
         </div>
@@ -651,47 +660,84 @@ function personCard(user, following, note = "") {
   </div>`;
 }
 
-async function networkPage() {
-  await loadUsers();
-  const me = currentUser();
-  if (!me) {
-    app.innerHTML = `
-      <h1 class="page-title">Seguidores</h1>
-      <p class="muted">Entre na sua conta para seguir pessoas e ver quem segue você.</p>
-      ${section("Pessoas no hitBoxd", `<div class="members">${state.users.map((u) => personCard(u, false)).join("")}</div>`)}`;
-    return;
-  }
-
+/** Popup com quem segue o perfil e quem ele segue, aberto pelos números do perfil. */
+async function followModal(userId, tab = "followers") {
   const [profile, followers] = await Promise.all([
-    social(`/api/users/${me.id}`),
-    social(`/api/users/${me.id}/followers`),
+    social(`/api/users/${userId}`),
+    social(`/api/users/${userId}/followers`),
   ]);
-  const followingIds = new Set(profile.following.map((u) => u.id));
+  const isMe = profile.id === state.userId;
+  // o que importa para os botões é quem EU sigo e quem ME segue, não o dono do perfil
+  const [myFollowing, myFollowers] = !state.userId ? [[], []]
+    : isMe ? [profile.following, followers]
+    : await Promise.all([
+      social(`/api/users/${state.userId}`).then((p) => p.following),
+      social(`/api/users/${state.userId}/followers`),
+    ]);
+  const iFollow = new Set(myFollowing.map((u) => u.id));
+  const followsMe = new Set(myFollowers.map((u) => u.id));
+  const list = tab === "followers" ? followers : profile.following;
+  // na aba Seguidores do próprio perfil, todo mundo segue você: o aviso seria redundante
+  const showFollowsMe = (u) => followsMe.has(u.id) && u.id !== state.userId && !(isMe && tab === "followers");
 
-  // sugestões: quem é seguido pelas pessoas que você segue vem primeiro
-  const theirFollowing = await Promise.all(profile.following.map((u) => social(`/api/users/${u.id}`).catch(() => null)));
-  const followedBy = new Map();
-  for (const p of theirFollowing.filter(Boolean)) {
-    for (const u of p.following) {
-      if (!followedBy.has(u.id)) followedBy.set(u.id, p.displayName);
+  // no próprio perfil, a aba "Seguindo" sugere pessoas seguidas por quem você segue
+  let suggestions = "";
+  if (isMe && tab === "following") {
+    const theirs = await Promise.all(profile.following.map((u) => social(`/api/users/${u.id}`).catch(() => null)));
+    const followedBy = new Map();
+    for (const p of theirs.filter(Boolean)) {
+      for (const u of p.following) if (!followedBy.has(u.id)) followedBy.set(u.id, p.displayName);
+    }
+    const people = state.users
+      .filter((u) => u.id !== profile.id && !iFollow.has(u.id))
+      .sort((a, b) => followedBy.has(b.id) - followedBy.has(a.id));
+    if (people.length) {
+      suggestions = `<h3 class="follow-subtitle">Sugestões para seguir</h3>
+        <div class="members">${people.map((u) => personCard(u, false, followedBy.has(u.id) ? `seguido por ${followedBy.get(u.id)}` : followsMe.has(u.id) ? "segue você" : "")).join("")}</div>`;
     }
   }
-  const suggestions = state.users
-    .filter((u) => u.id !== me.id && !followingIds.has(u.id))
-    .sort((a, b) => followedBy.has(b.id) - followedBy.has(a.id));
-  const followerIds = new Set(followers.map((u) => u.id));
 
-  app.innerHTML = `
-    <h1 class="page-title">Seguidores</h1>
-    <p class="muted">Quem você segue aparece no seu feed na página inicial.</p>
-    ${section(`Seguindo (${profile.following.length})`, profile.following.length
-      ? `<div class="members">${profile.following.map((u) => personCard(u, true, followerIds.has(u.id) ? "segue você" : "")).join("")}</div>`
-      : '<div class="empty">Você ainda não segue ninguém.</div>')}
-    ${section(`Seguidores (${followers.length})`, followers.length
-      ? `<div class="members">${followers.map((u) => personCard(u, followingIds.has(u.id))).join("")}</div>`
-      : '<div class="empty">Ninguém segue você ainda.</div>')}
-    ${suggestions.length ? section("Sugestões para seguir",
-      `<div class="members">${suggestions.map((u) => personCard(u, false, followedBy.has(u.id) ? `seguido por ${followedBy.get(u.id)}` : "")).join("")}</div>`) : ""}`;
+  const empty = tab === "followers"
+    ? (isMe ? "Ninguém segue você ainda." : `Ninguém segue ${profile.displayName} ainda.`)
+    : (isMe ? "Você ainda não segue ninguém." : `${profile.displayName} ainda não segue ninguém.`);
+
+  openModal(`
+    <div class="follow-head">
+      <h2>${esc(profile.displayName)}</h2>
+      <button class="link-btn" data-close aria-label="Fechar">✕</button>
+    </div>
+    <div class="follow-tabs" role="tablist">
+      <button role="tab" aria-selected="${tab === "followers"}" data-follow-tab="followers">${followers.length} seguidores</button>
+      <button role="tab" aria-selected="${tab === "following"}" data-follow-tab="following">${profile.following.length} seguindo</button>
+    </div>
+    ${list.length
+      ? `<div class="members">${list.map((u) => personCard(u, iFollow.has(u.id), showFollowsMe(u) ? "segue você" : "")).join("")}</div>`
+      : `<div class="empty">${esc(empty)}</div>`}
+    ${suggestions}`, (root) => {
+    root.querySelectorAll("[data-follow-tab]").forEach((btn) =>
+      btn.addEventListener("click", () => followModal(userId, btn.dataset.followTab)));
+    // seguir/deixar de seguir pelo popup: atualiza o popup e a página por trás
+    root.querySelectorAll("[data-follow]").forEach((btn) => btn.addEventListener("click", async () => {
+      if (await toggleFollow(btn)) {
+        render();
+        followModal(userId, tab);
+      }
+    }));
+    root.querySelectorAll(".member-link").forEach((link) => link.addEventListener("click", () => modal.close()));
+  });
+}
+
+async function toggleFollow(btn) {
+  const following = btn.dataset.following === "true";
+  const target = state.users.find((u) => u.id === Number(btn.dataset.follow));
+  try {
+    await social(`/api/users/${state.userId}/following/${btn.dataset.follow}`, { method: following ? "DELETE" : "POST" });
+    toast(following ? `Você deixou de seguir ${target?.displayName}` : `Agora você segue ${target?.displayName}`);
+    return true;
+  } catch (err) {
+    toast(err.message, true);
+    return false;
+  }
 }
 
 async function userPage(id) {
@@ -702,9 +748,6 @@ async function userPage(id) {
     social(`/api/users/${id}/followers`),
   ]);
   const iFollow = followers.some((u) => u.id === state.userId);
-  const people = (users) => users.length
-    ? users.map((u) => `<div style="margin-bottom:8px"><a href="#/user/${u.id}">${avatar(u)} ${esc(u.displayName)}</a></div>`).join("")
-    : '<div class="faint">Ninguém ainda.</div>';
   const favorites = diary.filter((r) => r.liked || r.rating >= 4.5)
     .filter((r, i, all) => all.findIndex((x) => x.gameId === r.gameId) === i)
     .slice(0, 6);
@@ -722,19 +765,18 @@ async function userPage(id) {
         <div><b>${profile.gamesLogged}</b><span>jogos</span></div>
         <div><b>${profile.reviewsWritten}</b><span>resenhas</span></div>
         <div><b>${profile.listsCreated}</b><span>listas</span></div>
-        <div><b>${profile.followers}</b><span>seguidores</span></div>
-        <div><b>${profile.following.length}</b><span>seguindo</span></div>
+        <button class="stat-link" data-follow-list="followers"><b>${profile.followers}</b><span>seguidores</span></button>
+        <button class="stat-link" data-follow-list="following"><b>${profile.following.length}</b><span>seguindo</span></button>
       </div>
     </div>
     ${favorites.length ? section("Favoritos", `<div class="grid small">${favorites.map((r) => gameCard(state.games.get(r.gameId) ?? { id: r.gameId, title: "?", year: "", color: "#333" })).join("")}</div>`) : ""}
     <div class="two-col">
       ${section("Atividade recente", diary.length ? diary.slice(0, 8).map((r) => reviewItem(r, { showUser: false })).join("") : '<div class="empty">Nada registrado ainda.</div>')}
-      <div>
-        ${section("Listas", lists.length ? `<div style="display:grid;gap:14px">${lists.map(listCard).join("")}</div>` : '<div class="empty">Nenhuma lista.</div>')}
-        ${section(`Seguindo (${profile.following.length})`, people(profile.following))}
-        ${section(`Seguidores (${followers.length})`, people(followers))}
-      </div>
+      ${section("Listas", lists.length ? `<div style="display:grid;gap:14px">${lists.map(listCard).join("")}</div>` : '<div class="empty">Nenhuma lista.</div>')}
     </div>`;
+
+  app.querySelectorAll("[data-follow-list]").forEach((btn) =>
+    btn.addEventListener("click", () => followModal(profile.id, btn.dataset.followList)));
 }
 
 // ---------------------------------------------------------------------------
@@ -742,7 +784,7 @@ async function userPage(id) {
 // ---------------------------------------------------------------------------
 function openModal(html, onReady) {
   modalBody.innerHTML = html;
-  modal.showModal();
+  if (!modal.open) modal.showModal();
   modalBody.querySelector("[data-close]")?.addEventListener("click", () => modal.close());
   onReady?.(modalBody);
 }
@@ -1071,50 +1113,186 @@ async function uploadAvatar(userId, blob) {
   }
 }
 
-function newGameModal(genres) {
-  openModal(`
-    <h2>Adicionar jogo ao catálogo</h2>
-    <form class="form" id="game-form">
-      <label>Título <input type="text" name="title" required maxlength="200"></label>
-      <div class="row">
-        <label>Ano <input type="text" name="year" inputmode="numeric" pattern="[0-9]{4}" required></label>
-        <label>Desenvolvedora <input type="text" name="developer" required maxlength="120"></label>
-      </div>
-      <label>Gêneros (separados por vírgula) <input type="text" name="genres" list="genre-list" placeholder="RPG, Ação"></label>
-      <datalist id="genre-list">${genres.map((g) => `<option value="${esc(g)}">`).join("")}</datalist>
-      <label>Plataformas (separadas por vírgula) <input type="text" name="platforms" placeholder="PC, Switch"></label>
-      <label>Resumo <textarea name="summary" style="min-height:70px"></textarea></label>
-      <label>URL da imagem da capa (opcional) <input type="text" name="coverUrl" inputmode="url" pattern="https://.+" placeholder="https://…"></label>
-      <label>Cor de fundo <input type="color" name="color" value="#4a6d8c"></label>
-      <div class="form-error" id="form-error"></div>
-      <div class="form-actions">
-        <button type="button" class="btn" data-close>Cancelar</button>
-        <button class="btn primary">Adicionar</button>
-      </div>
-    </form>`, (root) => {
-    root.querySelector("#game-form").addEventListener("submit", async (e) => {
+// ---------------------------------------------------------------------------
+// Administração: só o admin adiciona e edita jogos
+// ---------------------------------------------------------------------------
+function setAdminToken(token) {
+  state.adminToken = token;
+  try {
+    if (token) sessionStorage.setItem("hitboxd.admin", token);
+    else sessionStorage.removeItem("hitboxd.admin");
+  } catch { /* armazenamento indisponível */ }
+  renderSession();
+}
+
+/** Pedido ao catálogo com o token do admin; um 401 encerra a sessão de admin. */
+async function adminRequest(path, options = {}) {
+  try {
+    return await catalog(path, { ...options, headers: { Authorization: `Bearer ${state.adminToken}` } });
+  } catch (err) {
+    if (err.status === 401) {
+      setAdminToken(null);
+      toast("Sua sessão de administrador expirou", true);
+      location.hash = "#/admin";
+    }
+    throw err;
+  }
+}
+
+async function adminPage() {
+  if (!state.adminToken) {
+    app.innerHTML = `
+      <div class="admin-login">
+        <h1 class="page-title">Área do administrador</h1>
+        <p class="muted">Entre para adicionar e editar as páginas dos jogos.</p>
+        <form class="form" id="admin-login-form">
+          <label>Usuário <input type="text" name="username" required autocomplete="username"></label>
+          <label>Senha <input type="password" name="password" required autocomplete="current-password"></label>
+          <div class="form-error" id="admin-error"></div>
+          <div class="form-actions"><button class="btn primary">Entrar como admin</button></div>
+        </form>
+      </div>`;
+    document.getElementById("admin-login-form").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const data = Object.fromEntries(new FormData(e.target));
-      const split = (s) => s.split(",").map((x) => x.trim()).filter(Boolean);
+      const button = e.target.querySelector("button");
+      button.disabled = true;
       try {
-        const game = await catalog("/api/games", {
-          method: "POST",
-          body: {
-            ...data,
-            year: Number(data.year),
-            genres: split(data.genres),
-            platforms: split(data.platforms),
-            coverUrl: data.coverUrl.trim() || null,
-          },
-        });
-        state.games.set(game.id, game);
-        modal.close();
-        toast(`${game.title} adicionado ao catálogo`);
-        location.hash = `#/game/${game.id}`;
+        const session = await catalog("/api/admin/login", { method: "POST", body: Object.fromEntries(new FormData(e.target)) });
+        setAdminToken(session.token);
+        toast("Você entrou como administrador");
+        render();
       } catch (err) {
-        root.querySelector("#form-error").textContent = err.message;
+        document.getElementById("admin-error").textContent = err.message;
+        button.disabled = false;
       }
     });
+    return;
+  }
+
+  const games = await catalog("/api/games?sort=title");
+  games.forEach((g) => state.games.set(g.id, { ...state.games.get(g.id), ...g }));
+  const rows = (term) => games
+    .filter((g) => !term || g.title.toLowerCase().includes(term.toLowerCase()))
+    .map((g) => `<div class="admin-row">
+      ${cover(g, "mini")}
+      <div><b>${esc(g.title)}</b><div class="faint">${g.year} · ${esc(g.developer)}</div></div>
+      <a class="btn small" href="#/game/${g.id}">Ver página</a>
+      <a class="btn small primary" href="#/admin/game/${g.id}">Editar</a>
+    </div>`).join("") || '<div class="empty">Nenhum jogo encontrado.</div>';
+
+  app.innerHTML = `
+    <div class="admin-top">
+      <div>
+        <h1 class="page-title">Administração do catálogo</h1>
+        <p class="muted">${games.length} jogos</p>
+      </div>
+      <div class="admin-actions">
+        <a class="btn primary" href="#/admin/game/new">+ Adicionar jogo</a>
+        <button class="btn" id="admin-logout">Sair do admin</button>
+      </div>
+    </div>
+    <input type="search" class="admin-search" id="admin-search" placeholder="Filtrar jogos…" aria-label="Filtrar jogos">
+    <div class="admin-list" id="admin-list">${rows("")}</div>`;
+
+  document.getElementById("admin-search").addEventListener("input", (e) => {
+    document.getElementById("admin-list").innerHTML = rows(e.target.value);
+  });
+  document.getElementById("admin-logout").addEventListener("click", async () => {
+    await adminRequest("/api/admin/session", { method: "DELETE" }).catch(() => {});
+    setAdminToken(null);
+    toast("Você saiu da área do administrador");
+    render();
+  });
+}
+
+const STEAM_COVER = (appId) => `https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/${appId}/library_600x900.jpg`;
+
+async function adminGamePage(id) {
+  if (!state.adminToken) {
+    location.hash = "#/admin";
+    return;
+  }
+  const isNew = id === "new";
+  const game = isNew ? null : await catalog(`/api/games/${id}`);
+  // a capa padrão da Steam é derivada do steamAppId: no formulário ela aparece como "em branco"
+  const coverUrl = game?.coverUrl && game.coverUrl !== STEAM_COVER(game.steamAppId) ? game.coverUrl : "";
+  const h = game?.hltb;
+  const v = (value) => esc(value ?? "");
+
+  app.innerHTML = `
+    <a class="faint" href="#/admin">← Voltar à administração</a>
+    <h1 class="page-title" style="margin-top:10px">${isNew ? "Adicionar jogo" : `Editar: ${esc(game.title)}`}</h1>
+    <form class="form admin-form" id="admin-game-form">
+      <fieldset>
+        <legend>Informações básicas</legend>
+        <label>Título <input type="text" name="title" required maxlength="200" value="${v(game?.title)}"></label>
+        <div class="row">
+          <label>Ano <input type="number" name="year" min="1950" max="2100" required value="${v(game?.year)}"></label>
+          <label>Desenvolvedora <input type="text" name="developer" required maxlength="120" value="${v(game?.developer)}"></label>
+        </div>
+        <div class="row">
+          <label>Gêneros (separados por vírgula) <input type="text" name="genres" value="${v(game?.genres.join(", "))}" placeholder="RPG, Ação"></label>
+          <label>Plataformas (separadas por vírgula) <input type="text" name="platforms" value="${v(game?.platforms.join(", "))}" placeholder="PC, Switch"></label>
+        </div>
+        <label>Resumo (uma frase, aparece no topo da página) <textarea name="summary" style="min-height:60px">${v(game?.summary)}</textarea></label>
+        <label>Descrição <textarea name="description" style="min-height:120px">${v(game?.description)}</textarea></label>
+        <label>Para quem é <textarea name="audience" style="min-height:80px">${v(game?.audience)}</textarea></label>
+      </fieldset>
+      <fieldset>
+        <legend>Imagens</legend>
+        <div class="row">
+          <label>ID do jogo na Steam (capa e screenshots automáticas) <input type="number" name="steamAppId" min="1" value="${v(game?.steamAppId)}" placeholder="ex: 1145360"></label>
+          <label>Cor de fundo <input type="color" name="color" value="${v(game?.color ?? "#4a6d8c")}"></label>
+        </div>
+        <label>URL da capa (deixe em branco para usar a da Steam) <input type="text" name="coverUrl" inputmode="url" pattern="https://.+" value="${v(coverUrl)}" placeholder="https://…"></label>
+        <label>URLs das screenshots, uma por linha (substituem as da Steam) <textarea name="screenshotUrls" style="min-height:70px" placeholder="https://…">${v(game?.screenshotUrls.join("\n"))}</textarea></label>
+      </fieldset>
+      <fieldset>
+        <legend>HowLongToBeat (horas)</legend>
+        <div class="row">
+          <label>ID da página no HowLongToBeat <input type="number" name="hltbId" min="1" value="${v(h?.id)}" placeholder="ex: 62941"></label>
+          <label>História principal <input type="number" name="hltbMain" min="0" step="any" value="${v(h?.mainStory)}"></label>
+        </div>
+        <div class="row">
+          <label>História + extras <input type="number" name="hltbExtra" min="0" step="any" value="${v(h?.mainExtra)}"></label>
+          <label>100% <input type="number" name="hltbComp" min="0" step="any" value="${v(h?.completionist)}"></label>
+        </div>
+      </fieldset>
+      <div class="form-error" id="form-error"></div>
+      <div class="form-actions">
+        <a class="btn" href="#/admin">Cancelar</a>
+        <button class="btn primary">${isNew ? "Adicionar jogo" : "Salvar alterações"}</button>
+      </div>
+    </form>`;
+
+  document.getElementById("admin-game-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const d = Object.fromEntries(new FormData(e.target));
+    const list = (text, sep) => text.split(sep).map((x) => x.trim()).filter(Boolean);
+    const num = (x) => (x === "" ? null : Number(x));
+    const body = {
+      title: d.title.trim(),
+      year: Number(d.year),
+      developer: d.developer.trim(),
+      genres: list(d.genres, ","),
+      platforms: list(d.platforms, ","),
+      summary: d.summary.trim(),
+      description: d.description.trim(),
+      audience: d.audience.trim(),
+      steamAppId: num(d.steamAppId),
+      coverUrl: d.coverUrl.trim() || null,
+      screenshotUrls: list(d.screenshotUrls, "\n"),
+      color: d.color,
+      hltb: d.hltbId ? { id: Number(d.hltbId), mainStory: num(d.hltbMain), mainExtra: num(d.hltbExtra), completionist: num(d.hltbComp) } : null,
+    };
+    try {
+      const saved = await adminRequest(isNew ? "/api/games" : `/api/games/${id}`, { method: isNew ? "POST" : "PUT", body });
+      state.games.set(saved.id, saved);
+      toast(isNew ? `${saved.title} adicionado ao catálogo` : "Página do jogo atualizada");
+      location.hash = `#/game/${saved.id}`;
+    } catch (err) {
+      document.getElementById("form-error").textContent = err.message;
+    }
   });
 }
 
@@ -1139,12 +1317,13 @@ function setUser(id) {
 function renderSession() {
   const el = document.getElementById("session");
   const user = currentUser();
+  const adminBadge = state.adminToken ? '<a class="admin-badge" href="#/admin" title="Área do administrador">Admin</a>' : "";
   if (!user) {
-    el.innerHTML = state.users.length ? '<button class="btn primary" id="login-btn">Entrar</button>' : "";
+    el.innerHTML = adminBadge + (state.users.length ? '<button class="btn primary" id="login-btn">Entrar</button>' : "");
     el.querySelector("#login-btn")?.addEventListener("click", loginModal);
     return;
   }
-  el.innerHTML = `
+  el.innerHTML = `${adminBadge}
     <div class="account">
       <button class="account-btn" id="account-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu">
         ${avatar(user)}
@@ -1159,7 +1338,6 @@ function renderSession() {
         <a role="menuitem" href="#/user/${user.id}">Meu perfil</a>
         <a role="menuitem" href="#/diary">Meu diário</a>
         <a role="menuitem" href="#/lists">Minhas listas</a>
-        <a role="menuitem" href="#/network">Seguidores</a>
         <hr>
         <button role="menuitem" data-account="details">Dados da conta</button>
         <button role="menuitem" data-account="switch">Trocar de conta</button>
@@ -1228,8 +1406,9 @@ const routes = [
   [/^\/diary(?:\/(\d+))?$/, ([, id]) => diaryPage(id)],
   [/^\/lists$/, () => listsPage()],
   [/^\/list\/(\d+)$/, ([, id]) => listPage(id)],
-  [/^\/network$/, () => networkPage()],
   [/^\/user\/(\d+)$/, ([, id]) => userPage(id)],
+  [/^\/admin$/, () => adminPage()],
+  [/^\/admin\/game\/(new|\d+)$/, ([, id]) => adminGamePage(id)],
 ];
 
 async function render() {
@@ -1259,22 +1438,16 @@ async function render() {
 app.addEventListener("click", async (e) => {
   const followBtn = e.target.closest("[data-follow]");
   if (followBtn) {
-    const following = followBtn.dataset.following === "true";
-    const target = state.users.find((u) => u.id === Number(followBtn.dataset.follow));
-    try {
-      await social(`/api/users/${state.userId}/following/${followBtn.dataset.follow}`, { method: following ? "DELETE" : "POST" });
-      toast(following ? `Você deixou de seguir ${target?.displayName}` : `Agora você segue ${target?.displayName}`);
-      render();
-    } catch (err) {
-      toast(err.message, true);
-    }
+    if (await toggleFollow(followBtn)) render();
     return;
   }
   const likeBtn = e.target.closest("[data-like-review]");
   if (likeBtn) {
     e.preventDefault();
-    const review = await social(`/api/reviews/${likeBtn.dataset.likeReview}/like`, { method: "POST" }).catch((err) => toast(err.message, true));
-    if (review) likeBtn.textContent = `♥ ${review.likeCount}`;
+    if (!requireUser()) return;
+    const review = await social(`/api/reviews/${likeBtn.dataset.likeReview}/like?userId=${state.userId}`, { method: "POST" })
+      .catch((err) => toast(err.message, true));
+    if (review) likeBtn.outerHTML = likeButton(review);
     return;
   }
   const spoiler = e.target.closest(".spoiler");
@@ -1296,6 +1469,7 @@ window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); }
   try {
     const stored = Number(localStorage.getItem("hitboxd.user"));
     if (stored) state.userId = stored;
+    state.adminToken = sessionStorage.getItem("hitboxd.admin");
   } catch { /* armazenamento indisponível */ }
 
   const [games] = await Promise.all([
@@ -1305,5 +1479,10 @@ window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); }
   ]);
   games.forEach((g) => state.games.set(g.id, g));
   if (state.userId && !currentUser()) setUser(null);
+  // o token do admin some quando o serviço reinicia: confere antes de mostrar o selo "Admin"
+  if (state.adminToken) {
+    await catalog("/api/admin/session", { headers: { Authorization: `Bearer ${state.adminToken}` } })
+      .catch(() => setAdminToken(null));
+  }
   render();
 })();

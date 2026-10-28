@@ -146,8 +146,14 @@ public class DataSeeder implements CommandLineRunner {
 			review.setText(s.text());
 			review.setPlayedOn(LocalDate.now().minusDays(s.daysAgo()));
 			review.setCreatedAt(now.minus(s.daysAgo(), ChronoUnit.DAYS).minus(s.user(), ChronoUnit.HOURS));
-			for (int i = 0; i < (s.text() == null ? 0 : s.text().length() % 7); i++) {
-				review.addLike();
+			// algumas curtidas de outros usuários nas resenhas com texto
+			int likes = s.text() == null ? 0 : s.text().length() % 5;
+			for (int i = 1; i <= people.size() && likes > 0; i++) {
+				User fan = people.get((s.user() + i) % people.size());
+				if (fan != people.get(s.user())) {
+					review.toggleLike(fan);
+					likes--;
+				}
 			}
 			reviews.save(review);
 		}

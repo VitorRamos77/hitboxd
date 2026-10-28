@@ -71,6 +71,17 @@ class GameSummary(BaseModel):
     reviewCount: int = 0
 
 
+class AdminLogin(BaseModel):
+    username: str = Field(max_length=100)
+    password: str = Field(max_length=200)
+
+
+class AdminSession(BaseModel):
+    token: str
+    username: str
+    expiresIn: int  # segundos
+
+
 class Screenshot(BaseModel):
     thumb: str
     full: str

@@ -142,6 +142,13 @@ _SEED = [
 ]
 
 
+def _with_defaults(data: GameCreate) -> GameCreate:
+    """Sem capa informada, jogos da Steam usam a arte vertical da loja."""
+    if data.steamAppId and not data.coverUrl:
+        return data.model_copy(update={"coverUrl": steam_cover(data.steamAppId)})
+    return data
+
+
 class Catalog:
     def __init__(self) -> None:
         self._games: dict[int, Game] = {}
@@ -160,12 +167,17 @@ class Catalog:
             ))
 
     def add(self, data: GameCreate) -> Game:
-        if data.steamAppId and not data.coverUrl:
-            data = data.model_copy(update={"coverUrl": steam_cover(data.steamAppId)})
         with self._lock:
-            game = Game(id=self._next_id, **data.model_dump())
+            game = Game(id=self._next_id, **_with_defaults(data).model_dump())
             self._games[game.id] = game
             self._next_id += 1
+            return game
+
+    def update(self, game_id: int, data: GameCreate) -> Game:
+        """Substitui todos os dados do jogo, mantendo o id."""
+        with self._lock:
+            game = Game(id=game_id, **_with_defaults(data).model_dump())
+            self._games[game_id] = game
             return game
 
     def get(self, game_id: int) -> Game | None:

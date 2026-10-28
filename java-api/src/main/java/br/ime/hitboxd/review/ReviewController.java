@@ -57,8 +57,8 @@ public class ReviewController {
 	}
 
 	@PostMapping("/reviews/{id}/like")
-	public ReviewView like(@PathVariable Long id) {
-		return service.like(id);
+	public ReviewView like(@PathVariable Long id, @RequestParam Long userId) {
+		return service.toggleLike(id, userId);
 	}
 
 	/** O diário do usuário: entradas em ordem da data em que jogou. */

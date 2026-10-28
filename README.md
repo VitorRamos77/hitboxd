@@ -59,9 +59,28 @@ pip install -r requirements.txt
 uvicorn app.main:app --port 8000
 ```
 
-**3.** Abra http://localhost:8000, clique em **Entrar** e informe um nome de usuário (por exemplo, `ana_souls`), escolha um dos perfis de exemplo ou crie o seu. Depois de entrar, o botão com a sua foto abre o menu da conta: perfil, diário, listas, seguidores, dados da conta (nome, bio e foto), trocar de conta e sair.
+**3.** Abra http://localhost:8000, clique em **Entrar** e informe um nome de usuário (por exemplo, `ana_souls`), escolha um dos perfis de exemplo ou crie o seu. Depois de entrar, o botão com a sua foto abre o menu da conta: perfil, diário, listas, dados da conta (nome, bio e foto), trocar de conta e sair. No perfil, clicar em "seguidores" ou "seguindo" abre um popup com as listas, botões para seguir e, no seu próprio perfil, sugestões de quem seguir.
 
 A documentação interativa do FastAPI fica em http://localhost:8000/docs, e o console do H2 em http://localhost:8080/h2-console (JDBC URL `jdbc:h2:mem:hitboxd`, usuário `sa`).
+
+## Administrador
+
+Só o administrador pode adicionar e editar jogos. A área fica em http://localhost:8000/#/admin (não há link no menu) e permite editar título, ano, desenvolvedora, gêneros, plataformas, resumo, descrição, "para quem é", ID da Steam, capa, screenshots, cor e tempos do HowLongToBeat. Com o admin logado, cada página de jogo ganha o botão **Editar página** e o topo mostra o selo **Admin**.
+
+O usuário é `admin` (ou o valor de `ADMIN_USERNAME`) e a senha vem da variável de ambiente `ADMIN_PASSWORD`. Sem ela, o FastAPI gera uma senha aleatória a cada inicialização, mostra no terminal e grava em `python-api/.cache/admin-password.txt` (pasta ignorada pelo git):
+
+```
+ADMIN_PASSWORD nao definida. Senha do admin 'admin' nesta execucao: ...
+```
+
+Para fixar uma senha, defina a variável antes de subir o serviço (PowerShell):
+
+```powershell
+$env:ADMIN_PASSWORD = "uma-senha-forte"
+uvicorn app.main:app --port 8000
+```
+
+A sessão do admin dura 8 horas, fica só na memória do serviço (reiniciar encerra todas) e o token é guardado no `sessionStorage` da aba. Uma senha errada leva 1 s para responder, para dificultar tentativa e erro.
 
 ## Endpoints
 
@@ -71,7 +90,10 @@ A documentação interativa do FastAPI fica em http://localhost:8000/docs, e o c
 |---|---|---|
 | GET | `/api/games?q=&genre=&platform=&sort=popular\|rating\|year\|title` | Busca e filtra jogos, com média e nº de registros da comunidade (versão enxuta, sem os textos longos) |
 | GET | `/api/games/{id}` | Detalhe de um jogo: descrição, "para quem é", tempos do HowLongToBeat e médias |
-| POST | `/api/games` | Adiciona um jogo ao catálogo |
+| POST | `/api/admin/login` | Login do administrador (`username`, `password`); devolve um token válido por 8 h |
+| GET / DELETE | `/api/admin/session` | Confere / encerra a sessão do admin |
+| POST | `/api/games` | Adiciona um jogo ao catálogo (**só admin**, `Authorization: Bearer <token>`) |
+| PUT | `/api/games/{id}` | Edita todos os dados da página de um jogo (**só admin**) |
 | GET | `/api/games/{id}/screenshots` | Lista as screenshots do jogo (URLs da miniatura e da imagem grande) |
 | GET | `/api/games/{id}/screenshots/{n}?size=thumb\|full` | Screenshot reduzida em WebP (480x270 ou 1280x720) |
 | GET | `/api/games/{id}/cover` | Capa reduzida (WebP 360x540), gerada e guardada no primeiro pedido |
@@ -100,7 +122,7 @@ A recomendação combina três sinais: a afinidade do usuário com gêneros e de
 | PUT / DELETE | `/api/journal/{id}` | Edita / exclui uma atualização (o DELETE exige `?userId=` do dono) |
 | POST | `/api/reviews` | Registra um jogo (nota em meias estrelas, curtida, resenha, situação, plataforma, data, rejogado, spoilers) |
 | GET / PUT / DELETE | `/api/reviews/{id}` | Lê, edita ou exclui uma entrada |
-| POST | `/api/reviews/{id}/like` | Curte uma resenha |
+| POST | `/api/reviews/{id}/like?userId=` | Curte ou descurte uma resenha (cada usuário curte uma vez; a resposta traz `likeCount` e `likedBy`) |
 | GET | `/api/feed?userId=&limit=20` | Atividade de quem o usuário segue (ou de toda a comunidade) |
 | GET / POST | `/api/lists?ownerId=&gameId=` | Listas personalizadas / cria uma lista |
 | GET / PUT / DELETE | `/api/lists/{id}` | Lê, edita ou exclui uma lista |

@@ -2,7 +2,9 @@ package br.ime.hitboxd.review;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 
+import br.ime.hitboxd.user.User;
 import br.ime.hitboxd.user.UserDtos.UserSummary;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -43,12 +45,14 @@ public final class ReviewDtos {
 			boolean replay,
 			boolean spoilers,
 			int likeCount,
+			List<Long> likedBy,
 			Instant createdAt) {
 
 		public static ReviewView of(Review r) {
 			return new ReviewView(r.getId(), r.getUser().getId(), UserSummary.of(r.getUser()), r.getGameId(),
 					r.getRating(), r.isLiked(), r.getText(), r.getStatus(), r.getPlatform(), r.getPlayedOn(),
-					r.isReplay(), r.isSpoilers(), r.getLikeCount(), r.getCreatedAt());
+					r.isReplay(), r.isSpoilers(), r.getLikedBy().size(),
+					r.getLikedBy().stream().map(User::getId).sorted().toList(), r.getCreatedAt());
 		}
 	}
 }

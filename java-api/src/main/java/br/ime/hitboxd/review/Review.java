@@ -2,6 +2,10 @@ package br.ime.hitboxd.review;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.hibernate.annotations.BatchSize;
 
 import br.ime.hitboxd.user.User;
 import jakarta.persistence.Column;
@@ -12,6 +16,8 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 
 /**
@@ -54,7 +60,11 @@ public class Review {
 
 	private boolean spoilers;
 
-	private int likeCount;
+	/** Quem curtiu a resenha: cada usuário curte uma vez e pode descurtir. */
+	@ManyToMany
+	@JoinTable(name = "review_likes")
+	@BatchSize(size = 50)
+	private Set<User> likedBy = new HashSet<>();
 
 	private Instant createdAt = Instant.now();
 
@@ -142,12 +152,17 @@ public class Review {
 		this.spoilers = spoilers;
 	}
 
-	public int getLikeCount() {
-		return likeCount;
+	public Set<User> getLikedBy() {
+		return likedBy;
 	}
 
-	public void addLike() {
-		likeCount++;
+	/** Curte se ainda não curtiu; descurte se já curtiu. Devolve se ficou curtida. */
+	public boolean toggleLike(User user) {
+		if (likedBy.remove(user)) {
+			return false;
+		}
+		likedBy.add(user);
+		return true;
 	}
 
 	public Instant getCreatedAt() {
