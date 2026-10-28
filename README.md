@@ -81,7 +81,7 @@ flowchart LR
 |---|---|---|
 | `python-api/` | **FastAPI** + Pillow | Dono do **catálogo**: dados dos jogos, capas e screenshots otimizadas, estatísticas, recomendações, jogos parecidos, área do admin e atualização automática dos tempos. Também serve o frontend. |
 | `java-api/` | **Spring Boot** + JPA + H2 | Dono da **parte social**: contas e login (senha e Google), fotos de perfil, avaliações, curtidas, diário de jogo, listas, seguidores e feed. |
-| `frontend/` | HTML + CSS + JavaScript puro | Página única com rotas por `#hash` que conversa com os dois serviços. |
+| `frontend/` | HTML + CSS + JavaScript puro (módulos ES nativos, sem build) | Página única com rotas por `#hash` que conversa com os dois serviços. |
 
 O serviço Java guarda só o `gameId` de cada jogo. O serviço Python consulta as avaliações no Java para calcular médias, a distribuição das notas e as recomendações.
 
@@ -328,10 +328,20 @@ O diário é separado da **avaliação**: quando terminar um jogo, use **★ Ava
 
 ```
 hitboxd/
-├── frontend/                  # site (servido pelo FastAPI)
+├── frontend/                  # site (servido pelo FastAPI); módulos ES nativos, sem build
 │   ├── index.html
 │   ├── styles.css
-│   └── app.js                 # rotas, páginas, modais, login e chamadas às APIs
+│   └── js/
+│       ├── main.js            # ponto de entrada: eventos globais e início do site
+│       ├── router.js          # rotas por #hash e proteção contra páginas antigas
+│       ├── api.js             # pedidos ao catálogo (FastAPI) e à comunidade (Spring)
+│       ├── session.js         # login, cadastro, Google e menu da conta
+│       ├── search.js          # busca do topo com sugestões
+│       ├── components.js      # capas, cards, estrelas, avaliações, botão de seguir...
+│       ├── modals.js          # avaliar, listas, seguidores, dados da conta, imagens
+│       ├── state.js · dom.js · config.js · utils.js
+│       └── pages/             # uma página por arquivo: home, games, game, diary,
+│                              # lists, people, user e admin
 │
 ├── python-api/                # FastAPI · porta 8000
 │   ├── requirements.txt
