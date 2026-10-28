@@ -1,4 +1,20 @@
-from pydantic import BaseModel, Field
+from typing import Annotated
+
+from pydantic import BaseModel, Field, computed_field
+
+
+class HowLongToBeat(BaseModel):
+    """Tempos médios em horas, segundo o howlongtobeat.com."""
+
+    id: int
+    mainStory: float | None = None
+    mainExtra: float | None = None
+    completionist: float | None = None
+
+    @computed_field
+    @property
+    def url(self) -> str:
+        return f"https://howlongtobeat.com/game/{self.id}"
 
 
 class GameCreate(BaseModel):
@@ -8,6 +24,13 @@ class GameCreate(BaseModel):
     genres: list[str] = Field(default_factory=list)
     platforms: list[str] = Field(default_factory=list)
     summary: str = ""
+    description: str = ""
+    # que tipo de jogador deve gostar do jogo
+    audience: str = ""
+    # na Steam, a capa e as screenshots saem da loja; fora dela, use coverUrl e screenshotUrls
+    steamAppId: int | None = Field(default=None, ge=1)
+    screenshotUrls: list[Annotated[str, Field(max_length=500, pattern=r"^https://")]] = Field(default_factory=list, max_length=12)
+    hltb: HowLongToBeat | None = None
     # imagem original da capa; o serviço baixa uma vez e entrega uma versão reduzida em /cover
     coverUrl: str | None = Field(default=None, max_length=500, pattern=r"^https://")
     # cor de fundo enquanto a capa carrega, ou quando o jogo não tem capa
@@ -30,6 +53,27 @@ class GameStats(BaseModel):
 class GameWithStats(Game):
     average: float | None = None
     reviewCount: int = 0
+
+
+class GameSummary(BaseModel):
+    """Versão enxuta para listagens: sem textos longos, screenshots e tempos."""
+
+    id: int
+    title: str
+    year: int
+    developer: str
+    genres: list[str]
+    platforms: list[str]
+    summary: str
+    coverUrl: str | None
+    color: str
+    average: float | None = None
+    reviewCount: int = 0
+
+
+class Screenshot(BaseModel):
+    thumb: str
+    full: str
 
 
 class Recommendation(BaseModel):

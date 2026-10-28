@@ -4,8 +4,10 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
+import jakarta.persistence.Basic;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -34,6 +36,17 @@ public class User {
 	private String avatarColor;
 
 	private Instant createdAt = Instant.now();
+
+	/** Foto de perfil já reduzida pelo navegador (no máximo 256 KB). */
+	@Basic(fetch = FetchType.LAZY)
+	@Column(length = UserService.MAX_AVATAR_BYTES)
+	private byte[] avatar;
+
+	@Column(length = 20)
+	private String avatarType;
+
+	/** Muda a cada troca de foto, para o navegador não usar a versão antiga em cache. */
+	private Long avatarVersion;
 
 	@ManyToMany
 	@JoinTable(name = "follows")
@@ -79,6 +92,24 @@ public class User {
 
 	public Instant getCreatedAt() {
 		return createdAt;
+	}
+
+	public byte[] getAvatar() {
+		return avatar;
+	}
+
+	public String getAvatarType() {
+		return avatarType;
+	}
+
+	public Long getAvatarVersion() {
+		return avatarVersion;
+	}
+
+	public void setAvatar(byte[] avatar, String avatarType) {
+		this.avatar = avatar;
+		this.avatarType = avatarType;
+		this.avatarVersion = avatar == null ? null : System.currentTimeMillis();
 	}
 
 	public Set<User> getFollowing() {

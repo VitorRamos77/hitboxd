@@ -2,6 +2,8 @@ package br.ime.hitboxd.common;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
@@ -12,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.ime.hitboxd.gamelist.GameList;
 import br.ime.hitboxd.gamelist.GameListRepository;
+import br.ime.hitboxd.journal.JournalEntry;
+import br.ime.hitboxd.journal.JournalRepository;
 import br.ime.hitboxd.review.PlayStatus;
 import br.ime.hitboxd.review.Review;
 import br.ime.hitboxd.review.ReviewRepository;
@@ -74,14 +78,44 @@ public class DataSeeder implements CommandLineRunner {
 			new SeedReview(4, 9, 4.0, false, PlayStatus.JOGANDO, 12, "Lendo muito, pensando mais ainda."),
 			new SeedReview(4, 8, 3.0, false, PlayStatus.ABANDONADO, 170, "Lindo, mas lento demais para o meu gosto."));
 
+	/** Atualização de diário: usuário, jogo, dias atrás, hora do dia, horas jogadas e texto. */
+	private record SeedEntry(int user, long game, int daysAgo, int hour, Double hours, String text) {
+	}
+
+	private static final List<SeedEntry> JOURNAL = List.of(
+			new SeedEntry(0, 2, 30, 21, 3.0, "Comecei! Escolhi a classe Vagabundo. Margit me humilhou na primeira tentativa."),
+			new SeedEntry(0, 2, 27, 20, 4.5,
+					"Desisti de Margit por enquanto e fui explorar Limgrave. Achei a Torrente e tudo mudou."),
+			new SeedEntry(0, 2, 27, 23, 1.5, "Voltei para Margit com invocação de espíritos. Caiu na terceira tentativa!"),
+			new SeedEntry(0, 2, 20, 19, 5.0, "Castelo de Tempesta Velada completo. Godrick foi mais fácil que Margit."),
+			new SeedEntry(0, 2, 12, 22, 6.0, "Rennala, Radahn e um pedaço do subterrâneo. O festival do Radahn é lindo."),
+			new SeedEntry(0, 2, 5, 21, 4.0, "Malenia. 87 tentativas. Não quero falar sobre isso."),
+			new SeedEntry(0, 2, 2, 23, 3.5, "Platina! Último troféu foi pegar todos os encantamentos. Que jornada."),
+			new SeedEntry(1, 4, 20, 20, 2.0, "Primeira vez em Hallownest. Comprei o mapa do Cornifer, ainda bem."),
+			new SeedEntry(1, 4, 14, 21, 3.0, "Hornet em Greenpath. Perdi umas dez vezes até entender o padrão."),
+			new SeedEntry(1, 4, 9, 19, 2.5, "Cidade das Lágrimas. A música desse lugar..."),
+			new SeedEntry(1, 4, 4, 14, 1.5, "Peguei a garra do louva-a-deus. Agora dá para voltar em vários lugares."),
+			new SeedEntry(1, 4, 4, 22, 2.0, "De noite voltei e achei um amuleto escondido atrás de uma parede falsa."),
+			new SeedEntry(1, 4, 0, 10, 1.0, "Sessão rápida antes da aula: limpei o Abismo das Fungos e achei mais um fragmento de máscara."),
+			new SeedEntry(3, 11, 8, 18, 3.0, "Servidor novo com os amigos. Primeira noite num buraco de terra, como manda a tradição."),
+			new SeedEntry(3, 11, 6, 20, 4.0, "Construímos uma vila de madeira perto do rio e uma fazenda de trigo."),
+			new SeedEntry(3, 11, 1, 21, 2.5, "Primeira ida ao Nether. Perdi tudo na lava, mas voltamos com obsidiana."),
+			new SeedEntry(4, 9, 12, 20, 2.0, "O detetive acordou sem lembrar o próprio nome. Já gostei."),
+			new SeedEntry(4, 9, 7, 21, 3.0, "Conversei com a minha própria gravata. Este jogo é estranho no melhor sentido."),
+			new SeedEntry(4, 9, 7, 23, 1.0, "Uma pista nova sobre o corpo enforcado no pátio."),
+			new SeedEntry(4, 9, 3, 19, 2.5, "Kim Kitsuragi é o melhor parceiro de investigação que já tive num jogo."));
+
 	private final UserRepository users;
 	private final ReviewRepository reviews;
 	private final GameListRepository lists;
+	private final JournalRepository journal;
 
-	public DataSeeder(UserRepository users, ReviewRepository reviews, GameListRepository lists) {
+	public DataSeeder(UserRepository users, ReviewRepository reviews, GameListRepository lists,
+			JournalRepository journal) {
 		this.users = users;
 		this.reviews = reviews;
 		this.lists = lists;
+		this.journal = journal;
 	}
 
 	@Override
@@ -116,6 +150,18 @@ public class DataSeeder implements CommandLineRunner {
 				review.addLike();
 			}
 			reviews.save(review);
+		}
+
+		ZonedDateTime today = LocalDate.now().atStartOfDay(ZoneId.systemDefault());
+		for (SeedEntry s : JOURNAL) {
+			JournalEntry entry = new JournalEntry(people.get(s.user()), s.game());
+			entry.setText(s.text());
+			entry.setPlayedOn(LocalDate.now().minusDays(s.daysAgo()));
+			entry.setSessionHours(s.hours());
+			Instant written = today.minusDays(s.daysAgo()).plusHours(s.hour()).toInstant();
+			// sem datas no futuro para as sessões de hoje
+			entry.setCreatedAt(written.isAfter(now) ? now.minus(s.user() + 1, ChronoUnit.MINUTES) : written);
+			journal.save(entry);
 		}
 
 		list(people.get(0), "Os mais difíceis que zerei", "Ordem de sofrimento, do maior para o menor.", true,

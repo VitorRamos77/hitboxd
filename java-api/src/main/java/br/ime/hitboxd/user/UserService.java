@@ -2,6 +2,7 @@ package br.ime.hitboxd.user;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,9 @@ import br.ime.hitboxd.user.UserDtos.UserSummary;
 @Service
 @Transactional(readOnly = true)
 public class UserService {
+
+	public static final int MAX_AVATAR_BYTES = 256 * 1024;
+	private static final Set<String> AVATAR_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
 
 	private static final String[] AVATAR_COLORS = { "#e4572e", "#29a19c", "#f3a712", "#7768ae", "#3c91e6", "#d64a8a",
 			"#5fad56" };
@@ -52,7 +56,7 @@ public class UserService {
 		User user = find(id);
 		List<UserSummary> following = user.getFollowing().stream().map(UserSummary::of).toList();
 		return new UserProfile(user.getId(), user.getUsername(), user.getDisplayName(), user.getBio(),
-				user.getAvatarColor(), user.getCreatedAt(), reviews.countDistinctGamesByUserId(id),
+				user.getAvatarColor(), user.getAvatarVersion(), user.getCreatedAt(), reviews.countDistinctGamesByUserId(id),
 				reviews.countWrittenByUserId(id), lists.countByOwnerId(id), following, users.countFollowers(id));
 	}
 
@@ -72,6 +76,35 @@ public class UserService {
 		user.setDisplayName(input.displayName());
 		user.setBio(input.bio());
 		return profile(id);
+	}
+
+	public Avatar avatar(Long id) {
+		User user = find(id);
+		if (user.getAvatar() == null) {
+			throw new NotFoundException("Usuário " + id + " não tem foto");
+		}
+		return new Avatar(user.getAvatar(), user.getAvatarType());
+	}
+
+	@Transactional
+	public UserProfile setAvatar(Long id, byte[] image, String contentType) {
+		if (contentType == null || !AVATAR_TYPES.contains(contentType)) {
+			throw new IllegalArgumentException("A foto deve ser JPEG, PNG ou WebP");
+		}
+		if (image.length == 0 || image.length > MAX_AVATAR_BYTES) {
+			throw new IllegalArgumentException("A foto deve ter até 256 KB");
+		}
+		find(id).setAvatar(image, contentType);
+		return profile(id);
+	}
+
+	@Transactional
+	public UserProfile removeAvatar(Long id) {
+		find(id).setAvatar(null, null);
+		return profile(id);
+	}
+
+	public record Avatar(byte[] bytes, String contentType) {
 	}
 
 	@Transactional

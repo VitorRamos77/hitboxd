@@ -13,8 +13,8 @@ from fastapi.staticfiles import StaticFiles
 
 from . import recommender
 from .catalog import catalog
-from .covers import CoverUnavailable, cover_path
-from .models import Game, GameCreate, GameStats, GameWithStats, RecommendationResponse
+from .images import ImageUnavailable, ShotSize, cover_path, screenshot_count, screenshot_path
+from .models import Game, GameCreate, GameStats, GameSummary, GameWithStats, RecommendationResponse, Screenshot
 from .social_client import SocialUnavailable, fetch_reviews
 
 app = FastAPI(
@@ -39,7 +39,8 @@ def health():
     return {"status": "ok", "games": len(catalog.all()), "socialOnline": social_online}
 
 
-@app.get("/api/games", response_model=list[GameWithStats])
+# a listagem omite os textos longos e as screenshots, que só a página do jogo usa
+@app.get("/api/games", response_model=list[GameSummary])
 def list_games(
     q: str | None = Query(None, description="Busca por título ou desenvolvedora"),
     genre: str | None = None,
@@ -86,16 +87,42 @@ def get_game(game_id: int):
     return recommender.with_stats(game, recommender.community_stats(reviews))
 
 
-@app.get("/api/games/{game_id}/cover", response_class=FileResponse)
-def game_cover(game_id: int):
+IMAGE_CACHE = {"Cache-Control": "public, max-age=86400"}
+
+
+def _game_or_404(game_id: int) -> Game:
     game = catalog.get(game_id)
     if not game:
         raise HTTPException(404, "Jogo não encontrado")
+    return game
+
+
+@app.get("/api/games/{game_id}/cover", response_class=FileResponse)
+def game_cover(game_id: int):
+    game = _game_or_404(game_id)
     try:
         path = cover_path(game)
-    except CoverUnavailable as exc:
+    except ImageUnavailable as exc:
         raise HTTPException(404, f"Capa indisponível: {exc}") from exc
-    return FileResponse(path, media_type="image/webp", headers={"Cache-Control": "public, max-age=86400"})
+    return FileResponse(path, media_type="image/webp", headers=IMAGE_CACHE)
+
+
+@app.get("/api/games/{game_id}/screenshots", response_model=list[Screenshot])
+def game_screenshots(game_id: int):
+    game = _game_or_404(game_id)
+    base = f"/api/games/{game_id}/screenshots"
+    return [Screenshot(thumb=f"{base}/{i}?size=thumb", full=f"{base}/{i}?size=full")
+            for i in range(screenshot_count(game))]
+
+
+@app.get("/api/games/{game_id}/screenshots/{index}", response_class=FileResponse)
+def game_screenshot(game_id: int, index: int, size: ShotSize = "thumb"):
+    game = _game_or_404(game_id)
+    try:
+        path = screenshot_path(game, index, size)
+    except ImageUnavailable as exc:
+        raise HTTPException(404, f"Imagem indisponível: {exc}") from exc
+    return FileResponse(path, media_type="image/webp", headers=IMAGE_CACHE)
 
 
 @app.get("/api/games/{game_id}/stats", response_model=GameStats)

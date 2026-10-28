@@ -66,10 +66,16 @@ function toast(message, isError = false) {
   toast.timer = setTimeout(() => el.classList.remove("show"), 2600);
 }
 
-function stars(rating) {
+function formatRating(rating) {
+  return rating.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+/** Cinco estrelas preenchidas na proporção exata da nota, seguidas do valor (ex.: 4,5). */
+function stars(rating, { number = true } = {}) {
   if (rating == null) return "";
-  const full = Math.floor(rating);
-  return "★".repeat(full) + (rating - full >= 0.5 ? "½" : "");
+  return `<span class="rating" title="${formatRating(rating)} de 5">
+    <span class="stars-bar" style="--fill:${(rating / 5) * 100}%" aria-hidden="true">★★★★★</span>${number ? `<span class="rating-value">${formatRating(rating)}</span>` : ""}
+  </span>`;
 }
 
 function formatDate(iso, opts = { day: "numeric", month: "short", year: "numeric" }) {
@@ -93,7 +99,7 @@ function currentUser() {
 
 function requireUser() {
   if (currentUser()) return true;
-  toast("Escolha ou crie um perfil no canto superior direito", true);
+  loginModal();
   return false;
 }
 
@@ -116,7 +122,7 @@ function cover(game, cls = "") {
 
 function gameCard(game, extra = "") {
   const meta = game.average != null
-    ? `<span class="stars">${stars(game.average)}</span> (${game.reviewCount})`
+    ? `${stars(game.average)} <span class="faint">(${game.reviewCount})</span>`
     : `<span class="faint">sem notas</span>`;
   return `<a class="card" href="#/game/${game.id}" title="${esc(game.title)} (${game.year})">
     ${cover(game)}
@@ -125,7 +131,15 @@ function gameCard(game, extra = "") {
   </a>`;
 }
 
+function avatarUrl(user) {
+  // a versão muda a cada troca de foto, então o navegador pode guardar a imagem em cache sem risco
+  return `${SOCIAL_API}/api/users/${user.id}/avatar?v=${user.avatarVersion}`;
+}
+
 function avatar(user, cls = "") {
+  if (user?.avatarVersion) {
+    return `<img class="avatar ${cls}" src="${avatarUrl(user)}" alt="" loading="lazy" decoding="async">`;
+  }
   const initial = (user?.displayName || user?.username || "?").trim()[0].toUpperCase();
   return `<span class="avatar ${cls}" style="background:${esc(user?.avatarColor || "#555")}">${esc(initial)}</span>`;
 }
@@ -141,7 +155,7 @@ function reviewItem(review, { showGame = true, showUser = true } = {}) {
       ${showGame ? `<a class="review-game" href="#/game/${review.gameId}">${esc(game?.title ?? "Jogo #" + review.gameId)}</a> <span class="faint">${esc(game?.year ?? "")}</span>` : ""}
       <div class="review-head">
         ${showUser ? `<a class="who" href="#/user/${review.user.id}">${avatar(review.user)} ${esc(review.user.displayName)}</a>` : ""}
-        <span class="stars">${stars(review.rating)}</span>
+        ${stars(review.rating)}
         ${review.liked ? '<span class="liked" title="Curtiu">♥</span>' : ""}
         <span class="status ${review.status}">${STATUS_LABEL[review.status]}</span>
         ${review.replay ? '<span class="chip">rejogado</span>' : ""}
@@ -192,8 +206,7 @@ async function homePage() {
         <p>O hitBoxd é o seu diário de jogos: catalogue o que jogou, escreva resenhas, monte listas e receba recomendações da comunidade.</p></div>`;
 
   const recSection = recs?.items?.length
-    ? section("Recomendados para você",
-        `<div class="grid">${recs.items.map((r) => gameCard(r.game, `<span class="card-reason">${esc(r.reason)}</span>`)).join("")}</div>`)
+    ? section("Recomendados para você", `<div class="grid">${recs.items.map((r) => gameCard(r.game)).join("")}</div>`)
     : "";
 
   app.innerHTML = hero + recSection +
@@ -271,13 +284,14 @@ async function gamePage(id) {
         <p class="game-summary">${esc(game.summary)}</p>
         <div class="faint">Plataformas: ${game.platforms.map(esc).join(", ")}</div>
         <div class="game-actions">
-          <button class="btn primary" id="log-game">${mine.length ? "+ Registrar de novo" : "+ Registrar no diário"}</button>
+          <button class="btn primary" id="log-game">${mine.length ? "★ Avaliar de novo" : "★ Avaliar jogo"}</button>
+          <a class="btn" href="#/diary/${game.id}">📓 Diário do jogo</a>
           <button class="btn" id="add-to-list">Adicionar a uma lista</button>
-          ${mine.length ? `<span class="muted">Sua nota: <span class="stars">${stars(mine[0].rating) || "—"}</span> ${mine[0].liked ? '<span class="liked">♥</span>' : ""}</span>` : ""}
+          ${mine.length ? `<span class="muted">Sua nota: ${stars(mine[0].rating) || "—"} ${mine[0].liked ? '<span class="liked">♥</span>' : ""}</span>` : ""}
         </div>
         <div class="stat-box">
           <div style="display:flex;justify-content:space-between;align-items:baseline">
-            <span class="avg">${stats.average != null ? stats.average.toFixed(1) : "—"} <span class="stars" style="font-size:18px">${stars(stats.average)}</span></span>
+            <span class="avg">${stats.average != null ? formatRating(stats.average) : "—"} <span style="font-size:18px">${stars(stats.average, { number: false })}</span></span>
             <span class="faint">${stats.reviewCount} registros · ${stats.likeCount} ♥</span>
           </div>
           <div class="histogram" aria-label="Distribuição das notas">
@@ -287,68 +301,292 @@ async function gamePage(id) {
         </div>
       </div>
     </div>
+    <div id="gallery"></div>
     <div class="two-col">
-      ${section("Avaliações da comunidade",
-        reviews.length ? reviews.map((r) => reviewItem(r, { showGame: false })).join("") : '<div class="empty">Ninguém registrou este jogo ainda. Seja o primeiro!</div>')}
-      ${section("Aparece nas listas",
-        lists.length ? `<div style="display:grid;gap:14px">${lists.map(listCard).join("")}</div>` : '<div class="empty">Em nenhuma lista ainda.</div>')}
+      <div>
+        ${game.description || game.audience ? section("Sobre o jogo", `
+          ${game.description ? `<p class="game-description">${esc(game.description)}</p>` : ""}
+          ${game.audience ? `<div class="audience"><h3>Para quem é</h3><p>${esc(game.audience)}</p></div>` : ""}`) : ""}
+        ${section("Avaliações da comunidade",
+          reviews.length ? reviews.map((r) => reviewItem(r, { showGame: false })).join("") : '<div class="empty">Ninguém registrou este jogo ainda. Seja o primeiro!</div>')}
+      </div>
+      <div>
+        ${game.hltb ? section("Quanto tempo leva", hltbBox(game.hltb)) : ""}
+        ${section("Aparece nas listas",
+          lists.length ? `<div style="display:grid;gap:14px">${lists.map(listCard).join("")}</div>` : '<div class="empty">Em nenhuma lista ainda.</div>')}
+      </div>
     </div>`;
 
   document.getElementById("log-game").addEventListener("click", () => requireUser() && logModal(game));
   document.getElementById("add-to-list").addEventListener("click", () => requireUser() && addToListModal(game));
+
+  // as screenshots chegam depois, sem atrasar o resto da página
+  const shots = await catalog(`/api/games/${id}/screenshots`).catch(() => []);
+  const gallery = document.getElementById("gallery");
+  if (!gallery || !shots.length) return;
+  gallery.innerHTML = section("Imagens", `<div class="gallery">${shots.map((s, i) => `
+    <button class="shot" data-shot="${i}" aria-label="Ampliar imagem ${i + 1} de ${shots.length}">
+      <img src="${CATALOG_API}${s.thumb}" alt="" width="480" height="270" loading="lazy" decoding="async"
+           onload="this.classList.add('loaded')" onerror="this.parentNode.remove()">
+    </button>`).join("")}</div>`);
+  gallery.querySelectorAll("[data-shot]").forEach((btn) =>
+    btn.addEventListener("click", () => openLightbox(shots, Number(btn.dataset.shot), game.title)));
 }
 
-async function diaryPage() {
+function formatHours(hours) {
+  // arredonda para a meia hora mais próxima, como o próprio HowLongToBeat
+  const half = Math.round(hours * 2) / 2;
+  return `${Math.floor(half)}${half % 1 ? "½" : ""} h`;
+}
+
+function hltbBox(hltb) {
+  const rows = [
+    ["História principal", hltb.mainStory],
+    ["História + extras", hltb.mainExtra],
+    ["100%", hltb.completionist],
+  ].filter(([, h]) => h);
+  const max = Math.max(...rows.map(([, h]) => h));
+  return `<div class="hltb">
+    ${rows.map(([label, h]) => `<div class="hltb-row">
+      <div class="hltb-label"><span>${label}</span><b>${formatHours(h)}</b></div>
+      <div class="hltb-bar"><div style="width:${(h / max) * 100}%"></div></div>
+    </div>`).join("")}
+    <a class="faint" href="${esc(hltb.url)}" target="_blank" rel="noopener">Dados do HowLongToBeat ↗</a>
+  </div>`;
+}
+
+const lightbox = document.getElementById("lightbox");
+
+function openLightbox(shots, start, title) {
+  let index = start;
+  const img = lightbox.querySelector("img");
+  const show = () => {
+    img.src = CATALOG_API + shots[index].full;
+    img.alt = `${title}: imagem ${index + 1} de ${shots.length}`;
+    lightbox.querySelector(".lightbox-count").textContent = `${index + 1} / ${shots.length}`;
+  };
+  const step = (delta) => { index = (index + delta + shots.length) % shots.length; show(); };
+  lightbox.querySelector("[data-prev]").onclick = () => step(-1);
+  lightbox.querySelector("[data-next]").onclick = () => step(1);
+  lightbox.onkeydown = (e) => {
+    if (e.key === "ArrowLeft") step(-1);
+    if (e.key === "ArrowRight") step(1);
+  };
+  show();
+  lightbox.showModal();
+}
+
+async function diaryPage(gameIdParam) {
   const user = currentUser();
   if (!user) {
-    app.innerHTML = `<h1 class="page-title">Diário</h1><div class="empty">Escolha ou crie um perfil para ver seu diário.</div>`;
+    app.innerHTML = `<h1 class="page-title">Diário</h1><div class="empty">Entre na sua conta para ver seu diário.</div>`;
     return;
   }
-  const entries = await social(`/api/users/${user.id}/diary`);
-  const months = new Map();
-  for (const entry of entries) {
-    const key = entry.playedOn.slice(0, 7);
-    if (!months.has(key)) months.set(key, []);
-    months.get(key).push(entry);
+  const games = await social(`/api/users/${user.id}/journal`);
+  const gameId = gameIdParam ? Number(gameIdParam) : games[0]?.gameId;
+
+  if (!gameId) {
+    app.innerHTML = `
+      <h1 class="page-title">Diário</h1>
+      <div class="empty">
+        <p>Escolha um jogo que você está jogando e registre o que acontece em cada sessão:
+        o que descobriu, onde travou, quanto tempo jogou.</p>
+        <button class="btn primary" id="new-journal">+ Começar um diário</button>
+      </div>`;
+    document.getElementById("new-journal").addEventListener("click", pickJournalGame);
+    return;
   }
 
-  const rows = [...months].map(([month, items]) => `
-    <div class="diary-month">
-      <h3>${formatDate(month + "-15", { month: "long", year: "numeric" })}</h3>
-      ${items.map((e) => {
-        const game = state.games.get(e.gameId);
-        return `<div class="diary-row">
-          <div class="diary-day">${Number(e.playedOn.slice(8, 10))}</div>
-          <a href="#/game/${e.gameId}">${cover(game, "mini")}</a>
-          <div>
-            <a class="diary-title" href="#/game/${e.gameId}">${esc(game?.title ?? "Jogo #" + e.gameId)}</a>
-            <span class="faint">${esc(game?.year ?? "")}</span>
-            <div><span class="status ${e.status}">${STATUS_LABEL[e.status]}</span> ${e.replay ? '<span class="chip">rejogado</span>' : ""} ${e.text ? '<span class="faint">✎ resenha</span>' : ""}</div>
+  const game = state.games.get(gameId) ?? await catalog(`/api/games/${gameId}`);
+  const entries = await social(`/api/users/${user.id}/journal/${gameId}`);
+  const summary = games.find((g) => g.gameId === gameId);
+  const totalHours = entries.reduce((sum, e) => sum + (e.sessionHours ?? 0), 0);
+  const status = summary?.status;
+
+  // agrupa as atualizações pelo dia da sessão (já vêm da mais recente para a mais antiga)
+  const days = new Map();
+  for (const entry of entries) {
+    if (!days.has(entry.playedOn)) days.set(entry.playedOn, []);
+    days.get(entry.playedOn).push(entry);
+  }
+
+  const sidebar = games.map((g) => {
+    const item = state.games.get(g.gameId);
+    return `<a class="journal-game ${g.gameId === gameId ? "active" : ""}" href="#/diary/${g.gameId}">
+      ${cover(item, "mini")}
+      <div class="journal-game-info">
+        <b>${esc(item?.title ?? "Jogo #" + g.gameId)}</b>
+        <span class="faint">${g.entryCount ? `${g.entryCount} ${g.entryCount === 1 ? "atualização" : "atualizações"}` : "sem atualizações"}${g.totalHours ? ` · ${formatHours(g.totalHours)}` : ""}</span>
+      </div>
+    </a>`;
+  }).join("");
+
+  const timeline = [...days].map(([day, items]) => `
+    <div class="journal-day">
+      <h3>${dayLabel(day)}</h3>
+      ${items.map((e) => `
+        <article class="journal-entry">
+          <time datetime="${e.createdAt}">${formatTime(e.createdAt)}</time>
+          <div class="journal-entry-body">
+            <p class="${e.spoilers ? "spoiler" : ""}" ${e.spoilers ? 'title="Contém spoilers: clique para revelar"' : ""}>${esc(e.text)}</p>
+            <div class="journal-entry-foot">
+              ${e.sessionHours ? `<span class="chip">⏱ ${formatHours(e.sessionHours)}</span>` : ""}
+              <span class="journal-entry-actions">
+                <button class="link-btn" data-edit-journal="${e.id}">editar</button>
+                <button class="link-btn" data-delete-journal="${e.id}">excluir</button>
+              </span>
+            </div>
           </div>
-          <div class="diary-rating"><span class="stars">${stars(e.rating)}</span> ${e.liked ? '<span class="liked">♥</span>' : ""}</div>
-          <div class="diary-actions">
-            <button class="link-btn" data-edit-entry="${e.id}">editar</button>
-            <button class="link-btn" data-delete-entry="${e.id}">excluir</button>
-          </div>
-        </div>`;
-      }).join("")}
+        </article>`).join("")}
     </div>`).join("");
 
   app.innerHTML = `
-    <h1 class="page-title">Diário de ${esc(user.displayName)}</h1>
-    <p class="muted">${entries.length} ${entries.length === 1 ? "entrada" : "entradas"}. Cada vez que você joga, vira uma linha aqui.</p>
-    ${entries.length ? rows : '<div class="empty">Seu diário está vazio. Abra um jogo e clique em “Registrar no diário”.</div>'}`;
+    <div class="journal-layout">
+      <aside class="journal-games" aria-label="Jogos do diário">
+        <div class="journal-games-head">
+          <h2>Meus diários</h2>
+          <button class="btn small primary" id="new-journal">+ Novo</button>
+        </div>
+        ${sidebar || '<div class="faint">Nenhum diário ainda.</div>'}
+      </aside>
+      <section class="journal-main">
+        <div class="journal-head">
+          <a href="#/game/${gameId}">${cover(game, "medium")}</a>
+          <div class="journal-head-info">
+            <div class="faint">Diário de jogo</div>
+            <h1><a href="#/game/${gameId}">${esc(game?.title ?? "")}</a></h1>
+            <div class="journal-stats">
+              ${status ? `<span class="status ${status}">${STATUS_LABEL[status]}</span>` : ""}
+              <span><b>${entries.length}</b> ${entries.length === 1 ? "atualização" : "atualizações"}</span>
+              <span><b>${formatHours(totalHours)}</b> jogadas</span>
+            </div>
+          </div>
+          <button class="btn" id="finish-game" title="Registre a situação e dê sua nota">★ Avaliar jogo</button>
+        </div>
 
-  app.querySelectorAll("[data-edit-entry]").forEach((btn) => btn.addEventListener("click", () => {
-    const entry = entries.find((e) => e.id === Number(btn.dataset.editEntry));
-    logModal(state.games.get(entry.gameId), entry);
-  }));
-  app.querySelectorAll("[data-delete-entry]").forEach((btn) => btn.addEventListener("click", async () => {
-    if (!confirm("Excluir esta entrada do diário?")) return;
-    await social(`/api/reviews/${btn.dataset.deleteEntry}`, { method: "DELETE" });
-    toast("Entrada excluída");
+        <form class="journal-composer" id="journal-form">
+          <label class="sr-only" for="journal-text">Nova atualização</label>
+          <textarea id="journal-text" name="text" maxlength="4000" required placeholder="O que aconteceu nesta sessão?"></textarea>
+          <div class="journal-composer-row">
+            <label>Dia <input type="date" name="playedOn" value="${todayIso()}" max="${todayIso()}" required></label>
+            <label>Horas jogadas <input type="number" name="sessionHours" min="0.1" max="24" step="any" placeholder="ex: 1,5"></label>
+            <label class="check"><input type="checkbox" name="spoilers"> Spoilers</label>
+            <button class="btn primary">Adicionar atualização</button>
+          </div>
+          <div class="form-error" id="journal-error"></div>
+        </form>
+
+        ${entries.length ? timeline : '<div class="empty">Nenhuma atualização ainda. Conte como foi a primeira sessão!</div>'}
+      </section>
+    </div>`;
+
+  document.getElementById("new-journal").addEventListener("click", pickJournalGame);
+  document.getElementById("finish-game").addEventListener("click", () => game && logModal(game));
+  document.getElementById("journal-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await social("/api/journal", { method: "POST", body: journalBody(new FormData(e.target), gameId) });
+      toast("Atualização adicionada ao diário");
+      render();
+    } catch (err) {
+      document.getElementById("journal-error").textContent = err.message;
+    }
+  });
+  app.querySelectorAll("[data-edit-journal]").forEach((btn) => btn.addEventListener("click", () =>
+    journalEntryModal(entries.find((x) => x.id === Number(btn.dataset.editJournal)), game)));
+  app.querySelectorAll("[data-delete-journal]").forEach((btn) => btn.addEventListener("click", async () => {
+    if (!confirm("Excluir esta atualização do diário?")) return;
+    await social(`/api/journal/${btn.dataset.deleteJournal}?userId=${state.userId}`, { method: "DELETE" });
+    toast("Atualização excluída");
     render();
   }));
+}
+
+function todayIso() {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
+function dayLabel(iso) {
+  const today = todayIso();
+  const yesterday = new Date(Date.parse(today + "T12:00:00") - 86400000).toISOString().slice(0, 10);
+  if (iso === today) return "Hoje";
+  if (iso === yesterday) return "Ontem";
+  return formatDate(iso, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
+
+function formatTime(iso) {
+  return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function journalBody(data, gameId) {
+  const number = (key) => (data.get(key) === "" ? null : Number(data.get(key)));
+  return {
+    userId: state.userId,
+    gameId,
+    text: data.get("text"),
+    playedOn: data.get("playedOn"),
+    sessionHours: number("sessionHours"),
+    spoilers: data.has("spoilers"),
+  };
+}
+
+function journalEntryModal(entry, game) {
+  openModal(`
+    <h2>Editar atualização</h2>
+    <div class="muted">${esc(game?.title ?? "")}</div>
+    <form class="form" id="entry-form">
+      <label>Texto <textarea name="text" maxlength="4000" required>${esc(entry.text)}</textarea></label>
+      <div class="row">
+        <label>Dia <input type="date" name="playedOn" value="${entry.playedOn}" max="${todayIso()}" required></label>
+        <label>Horas jogadas <input type="number" name="sessionHours" min="0.1" max="24" step="any" value="${entry.sessionHours ?? ""}"></label>
+      </div>
+      <label class="check"><input type="checkbox" name="spoilers" ${entry.spoilers ? "checked" : ""}> Contém spoilers</label>
+      <div class="form-error" id="form-error"></div>
+      <div class="form-actions">
+        <button type="button" class="btn" data-close>Cancelar</button>
+        <button class="btn primary">Salvar</button>
+      </div>
+    </form>`, (root) => {
+    root.querySelector("#entry-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        await social(`/api/journal/${entry.id}`, { method: "PUT", body: journalBody(new FormData(e.target), entry.gameId) });
+        modal.close();
+        toast("Atualização salva");
+        render();
+      } catch (err) {
+        root.querySelector("#form-error").textContent = err.message;
+      }
+    });
+  });
+}
+
+/** Escolhe o jogo para começar um diário novo. */
+function pickJournalGame() {
+  const games = [...state.games.values()].sort((a, b) => a.title.localeCompare(b.title));
+  const results = (term) => games
+    .filter((g) => g.title.toLowerCase().includes(term.toLowerCase()))
+    .slice(0, 8)
+    .map((g) => `<button class="pick-game" data-pick="${g.id}">${cover(g, "mini")}<span><b>${esc(g.title)}</b><span class="faint">${g.year} · ${esc(g.developer)}</span></span></button>`)
+    .join("") || '<div class="faint">Nenhum jogo encontrado.</div>';
+  openModal(`
+    <h2>Começar um diário</h2>
+    <div class="muted">Qual jogo você está jogando?</div>
+    <div class="form">
+      <input type="search" id="pick-search" placeholder="Buscar jogo…" aria-label="Buscar jogo" autofocus>
+      <div class="pick-results" id="pick-results">${results("")}</div>
+      <div class="form-actions"><button type="button" class="btn" data-close>Cancelar</button></div>
+    </div>`, (root) => {
+    const list = root.querySelector("#pick-results");
+    root.querySelector("#pick-search").addEventListener("input", (e) => { list.innerHTML = results(e.target.value); });
+    list.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-pick]");
+      if (!btn) return;
+      modal.close();
+      location.hash = `#/diary/${btn.dataset.pick}`;
+    });
+  });
 }
 
 async function listsPage() {
@@ -419,7 +657,7 @@ async function networkPage() {
   if (!me) {
     app.innerHTML = `
       <h1 class="page-title">Seguidores</h1>
-      <p class="muted">Escolha um perfil no topo para seguir pessoas e ver quem segue você.</p>
+      <p class="muted">Entre na sua conta para seguir pessoas e ver quem segue você.</p>
       ${section("Pessoas no hitBoxd", `<div class="members">${state.users.map((u) => personCard(u, false)).join("")}</div>`)}`;
     return;
   }
@@ -554,7 +792,7 @@ function logModal(game, entry = null) {
   openModal(`
     <div style="display:flex;gap:16px;align-items:center">
       ${cover(game, "mini")}
-      <div><h2>${entry ? "Editar entrada" : "Registrar no diário"}</h2><div class="muted">${esc(game.title)} (${game.year})</div></div>
+      <div><h2>${entry ? "Editar avaliação" : "Avaliar jogo"}</h2><div class="muted">${esc(game.title)} (${game.year})</div></div>
     </div>
     <form class="form" id="log-form">
       <div class="row">
@@ -574,7 +812,7 @@ function logModal(game, entry = null) {
       <div class="form-error" id="form-error"></div>
       <div class="form-actions">
         <button type="button" class="btn" data-close>Cancelar</button>
-        <button class="btn primary">${entry ? "Salvar" : "Registrar"}</button>
+        <button class="btn primary">${entry ? "Salvar" : "Avaliar"}</button>
       </div>
     </form>`, (root) => {
     const rating = starInput(entry?.rating);
@@ -600,7 +838,7 @@ function logModal(game, entry = null) {
       try {
         await social(entry ? `/api/reviews/${entry.id}` : "/api/reviews", { method: entry ? "PUT" : "POST", body });
         modal.close();
-        toast(entry ? "Entrada atualizada" : `${game.title} registrado no seu diário`);
+        toast(entry ? "Avaliação atualizada" : `${game.title} avaliado`);
         render();
       } catch (err) {
         root.querySelector("#form-error").textContent = err.message;
@@ -705,6 +943,134 @@ function signupModal() {
   });
 }
 
+function loginModal() {
+  const others = state.users.filter((u) => u.id !== state.userId);
+  openModal(`
+    <h2>Entrar no hitBoxd</h2>
+    <div class="muted">Este projeto não usa senha: basta informar o nome de usuário.</div>
+    <form class="form" id="login-form">
+      <label>Nome de usuário <input type="text" name="username" required autocomplete="username" placeholder="ex: ana_souls"></label>
+      <div class="form-error" id="form-error"></div>
+      <div class="form-actions">
+        <button type="button" class="btn" data-close>Cancelar</button>
+        <button class="btn primary">Entrar</button>
+      </div>
+    </form>
+    ${others.length ? `<div class="login-divider"><span>ou entre como</span></div>
+    <div class="login-users">
+      ${others.map((u) => `<button class="login-user" data-login="${u.id}">${avatar(u)}<span><b>${esc(u.displayName)}</b><span class="faint">@${esc(u.username)}</span></span></button>`).join("")}
+    </div>` : ""}
+    <p class="muted" style="margin:18px 0 0;text-align:center">Não tem conta? <button class="link-btn accent" id="to-signup">Criar perfil</button></p>`, (root) => {
+    const login = (user) => {
+      modal.close();
+      setUser(user.id);
+      toast(`Olá, ${user.displayName.split(" ")[0]}!`);
+      render();
+    };
+    root.querySelector("#login-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const name = new FormData(e.target).get("username").trim().replace(/^@/, "").toLowerCase();
+      const user = state.users.find((u) => u.username.toLowerCase() === name);
+      if (user) login(user);
+      else root.querySelector("#form-error").textContent = `Não existe ninguém com o usuário @${name}`;
+    });
+    root.querySelectorAll("[data-login]").forEach((btn) => btn.addEventListener("click", () =>
+      login(state.users.find((u) => u.id === Number(btn.dataset.login)))));
+    root.querySelector("#to-signup").addEventListener("click", signupModal);
+  });
+}
+
+/** Recorta a foto no centro e reduz para 256x256 em JPEG (cerca de 15-25 KB). */
+async function resizePhoto(file, size = 256) {
+  const bitmap = await createImageBitmap(file);
+  const side = Math.min(bitmap.width, bitmap.height);
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  canvas.getContext("2d").drawImage(bitmap,
+    (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, size, size);
+  bitmap.close();
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+}
+
+async function accountModal() {
+  const profile = await social(`/api/users/${state.userId}`);
+  let photo = null; // Blob com a nova foto, null para manter ou "remove" para tirar
+  openModal(`
+    <h2>Dados da conta</h2>
+    <div class="muted">Membro desde ${formatDate(profile.createdAt, { month: "long", year: "numeric" })}</div>
+    <form class="form" id="account-form">
+      <div class="photo-field">
+        <div id="photo-preview">${avatar(profile, "big")}</div>
+        <div class="photo-actions">
+          <label class="btn small">Trocar foto<input type="file" accept="image/*" id="photo-input" hidden></label>
+          <button type="button" class="btn small danger" id="photo-remove" ${profile.avatarVersion ? "" : "hidden"}>Remover foto</button>
+          <span class="faint">JPG, PNG ou WebP. A imagem é recortada em quadrado.</span>
+        </div>
+      </div>
+      <label>Nome de usuário <input type="text" value="@${esc(profile.username)}" disabled></label>
+      <label>Nome de exibição <input type="text" name="displayName" maxlength="60" required value="${esc(profile.displayName)}"></label>
+      <label>Bio <textarea name="bio" maxlength="280" style="min-height:70px">${esc(profile.bio ?? "")}</textarea></label>
+      <div class="form-error" id="form-error"></div>
+      <div class="form-actions">
+        <button type="button" class="btn" data-close>Cancelar</button>
+        <button class="btn primary">Salvar</button>
+      </div>
+    </form>`, (root) => {
+    const preview = root.querySelector("#photo-preview");
+    const removeBtn = root.querySelector("#photo-remove");
+    let previewUrl = null;
+    root.querySelector("#photo-input").addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        photo = await resizePhoto(file);
+      } catch {
+        root.querySelector("#form-error").textContent = "Não foi possível ler essa imagem";
+        return;
+      }
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      previewUrl = URL.createObjectURL(photo);
+      preview.innerHTML = `<img class="avatar big" src="${previewUrl}" alt="">`;
+      removeBtn.hidden = false;
+    });
+    removeBtn.addEventListener("click", () => {
+      photo = "remove";
+      preview.innerHTML = avatar({ ...profile, avatarVersion: null }, "big");
+      removeBtn.hidden = true;
+    });
+    root.querySelector("#account-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target));
+      try {
+        if (photo === "remove") {
+          await social(`/api/users/${profile.id}/avatar`, { method: "DELETE" });
+        } else if (photo) {
+          await uploadAvatar(profile.id, photo);
+        }
+        await social(`/api/users/${profile.id}`, { method: "PUT", body: { displayName: data.displayName, bio: data.bio || null } });
+        modal.close();
+        await loadUsers();
+        toast("Dados da conta atualizados");
+        render();
+      } catch (err) {
+        root.querySelector("#form-error").textContent = err.message;
+      }
+    });
+  });
+}
+
+async function uploadAvatar(userId, blob) {
+  const response = await fetch(`${SOCIAL_API}/api/users/${userId}/avatar`, {
+    method: "PUT",
+    headers: { "Content-Type": blob.type },
+    body: blob,
+  }).catch(() => { throw new Error("Serviço da comunidade indisponível"); });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.detail ?? `Erro ${response.status} ao enviar a foto`);
+  }
+}
+
 function newGameModal(genres) {
   openModal(`
     <h2>Adicionar jogo ao catálogo</h2>
@@ -772,23 +1138,75 @@ function setUser(id) {
 
 function renderSession() {
   const el = document.getElementById("session");
-  if (!state.users.length) {
-    el.innerHTML = "";
+  const user = currentUser();
+  if (!user) {
+    el.innerHTML = state.users.length ? '<button class="btn primary" id="login-btn">Entrar</button>' : "";
+    el.querySelector("#login-btn")?.addEventListener("click", loginModal);
     return;
   }
   el.innerHTML = `
-    ${currentUser() ? `<a href="#/user/${state.userId}" title="Meu perfil">${avatar(currentUser())}</a>` : ""}
-    <select id="user-select" aria-label="Perfil ativo">
-      <option value="">Entrar como…</option>
-      ${state.users.map((u) => `<option value="${u.id}" ${u.id === state.userId ? "selected" : ""}>${esc(u.displayName)}</option>`).join("")}
-    </select>
-    <button class="btn small" id="header-signup">Criar perfil</button>`;
-  el.querySelector("#user-select").addEventListener("change", (e) => {
-    setUser(e.target.value ? Number(e.target.value) : null);
-    render();
+    <div class="account">
+      <button class="account-btn" id="account-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu">
+        ${avatar(user)}
+        <span class="account-name">${esc(user.displayName)}</span>
+        <span class="chevron" aria-hidden="true">▾</span>
+      </button>
+      <div class="account-menu" id="account-menu" role="menu" hidden>
+        <div class="account-head">
+          ${avatar(user, "medium")}
+          <div><b>${esc(user.displayName)}</b><div class="faint">@${esc(user.username)}</div></div>
+        </div>
+        <a role="menuitem" href="#/user/${user.id}">Meu perfil</a>
+        <a role="menuitem" href="#/diary">Meu diário</a>
+        <a role="menuitem" href="#/lists">Minhas listas</a>
+        <a role="menuitem" href="#/network">Seguidores</a>
+        <hr>
+        <button role="menuitem" data-account="details">Dados da conta</button>
+        <button role="menuitem" data-account="switch">Trocar de conta</button>
+        <button role="menuitem" data-account="logout" class="danger">Sair</button>
+      </div>
+    </div>`;
+
+  const button = el.querySelector("#account-btn");
+  const menu = el.querySelector("#account-menu");
+  const items = () => [...menu.querySelectorAll("[role=menuitem]")];
+  const toggle = (open) => {
+    menu.hidden = !open;
+    button.setAttribute("aria-expanded", open);
+    if (open) items()[0].focus();
+  };
+  button.addEventListener("click", () => toggle(menu.hidden));
+  menu.addEventListener("click", (e) => {
+    const item = e.target.closest("[role=menuitem]");
+    if (!item) return;
+    toggle(false);
+    const action = item.dataset.account;
+    if (action === "details") accountModal();
+    if (action === "switch") loginModal();
+    if (action === "logout") {
+      setUser(null);
+      toast("Você saiu da sua conta");
+      location.hash = "#/";
+      render();
+    }
   });
-  el.querySelector("#header-signup").addEventListener("click", signupModal);
+  menu.addEventListener("keydown", (e) => {
+    const list = items();
+    const i = list.indexOf(document.activeElement);
+    if (e.key === "ArrowDown") { e.preventDefault(); list[(i + 1) % list.length].focus(); }
+    if (e.key === "ArrowUp") { e.preventDefault(); list[(i - 1 + list.length) % list.length].focus(); }
+    if (e.key === "Escape") { toggle(false); button.focus(); }
+  });
 }
+
+// fecha o menu da conta ao clicar fora dele
+document.addEventListener("click", (e) => {
+  const menu = document.getElementById("account-menu");
+  if (menu && !menu.hidden && !e.target.closest(".account")) {
+    menu.hidden = true;
+    document.getElementById("account-btn").setAttribute("aria-expanded", "false");
+  }
+});
 
 async function checkServices() {
   const banner = document.getElementById("status-banner");
@@ -807,7 +1225,7 @@ const routes = [
   [/^\/?$/, () => homePage()],
   [/^\/games$/, (_, params) => gamesPage(params)],
   [/^\/game\/(\d+)$/, ([, id]) => gamePage(id)],
-  [/^\/diary$/, () => diaryPage()],
+  [/^\/diary(?:\/(\d+))?$/, ([, id]) => diaryPage(id)],
   [/^\/lists$/, () => listsPage()],
   [/^\/list\/(\d+)$/, ([, id]) => listPage(id)],
   [/^\/network$/, () => networkPage()],
@@ -870,6 +1288,7 @@ document.getElementById("search-form").addEventListener("submit", (e) => {
 });
 
 modal.addEventListener("click", (e) => { if (e.target === modal) modal.close(); });
+lightbox.addEventListener("click", (e) => { if (e.target === lightbox) lightbox.close(); });
 
 window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); });
 

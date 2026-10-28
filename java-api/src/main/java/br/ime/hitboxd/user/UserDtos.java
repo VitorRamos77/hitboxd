@@ -21,10 +21,11 @@ public final class UserDtos {
 	public record UpdateUser(@NotBlank @Size(max = 60) String displayName, @Size(max = 280) String bio) {
 	}
 
-	public record UserSummary(Long id, String username, String displayName, String avatarColor) {
+	public record UserSummary(Long id, String username, String displayName, String avatarColor, Long avatarVersion) {
 
 		public static UserSummary of(User user) {
-			return new UserSummary(user.getId(), user.getUsername(), user.getDisplayName(), user.getAvatarColor());
+			return new UserSummary(user.getId(), user.getUsername(), user.getDisplayName(), user.getAvatarColor(),
+					user.getAvatarVersion());
 		}
 	}
 
@@ -34,6 +35,7 @@ public final class UserDtos {
 			String displayName,
 			String bio,
 			String avatarColor,
+			Long avatarVersion,
 			Instant createdAt,
 			long gamesLogged,
 			long reviewsWritten,
