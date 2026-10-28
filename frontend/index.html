@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>hitBoxd</title>
+  <meta name="description" content="Catalogue, avalie e resenhe os jogos que você joga.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='4' width='24' height='24' rx='3' fill='none' stroke='%2300e0a4' stroke-width='3' stroke-dasharray='5 3'/%3E%3Crect x='11' y='11' width='10' height='10' fill='%23ff5470'/%3E%3C/svg%3E">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="#/" class="logo" aria-label="hitBoxd, página inicial">
+        <span class="logo-mark" aria-hidden="true"><span></span></span>
+        <span class="logo-text">hit<b>Boxd</b></span>
+      </a>
+      <nav class="nav" aria-label="Principal">
+        <a href="#/games" data-nav="games">Jogos</a>
+        <a href="#/diary" data-nav="diary">Diário</a>
+        <a href="#/lists" data-nav="lists">Listas</a>
+        <a href="#/network" data-nav="network">Seguidores</a>
+      </nav>
+      <form class="search" id="search-form" role="search">
+        <input type="search" id="search-input" placeholder="Buscar jogos…" aria-label="Buscar jogos">
+      </form>
+      <div class="session" id="session"></div>
+    </div>
+  </header>
+
+  <div class="status-banner" id="status-banner" hidden></div>
+
+  <main id="app" class="container" tabindex="-1"></main>
+
+  <dialog id="modal" class="modal">
+    <div class="modal-body" id="modal-body"></div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

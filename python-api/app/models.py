@@ -1,0 +1,41 @@
+from pydantic import BaseModel, Field
+
+
+class GameCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    year: int = Field(ge=1950, le=2100)
+    developer: str = Field(min_length=1, max_length=120)
+    genres: list[str] = Field(default_factory=list)
+    platforms: list[str] = Field(default_factory=list)
+    summary: str = ""
+    color: str = Field(default="#4a5568", pattern=r"^#[0-9a-fA-F]{6}$")
+
+
+class Game(GameCreate):
+    id: int
+
+
+class GameStats(BaseModel):
+    gameId: int
+    average: float | None
+    reviewCount: int
+    likeCount: int
+    # quantidade de notas em cada meia estrela, de 0.5 a 5.0
+    distribution: dict[str, int]
+
+
+class GameWithStats(Game):
+    average: float | None = None
+    reviewCount: int = 0
+
+
+class Recommendation(BaseModel):
+    game: GameWithStats
+    score: float
+    reason: str
+
+
+class RecommendationResponse(BaseModel):
+    userId: int
+    socialOnline: bool
+    items: list[Recommendation]
