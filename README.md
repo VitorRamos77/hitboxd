@@ -14,6 +14,18 @@ O navegador conversa com os dois serviços. O serviço Python é o dono do catá
 
 Os dois serviços guardam os dados em memória (o Java usa H2) e recarregam os dados de exemplo ao reiniciar: 24 jogos, 5 usuários, 32 entradas de diário e 5 listas.
 
+### Capas
+
+Cada jogo tem um `coverUrl` com a imagem original: a arte vertical da Steam (600x900) ou, para jogos fora da Steam, a capa da Wikipedia. O navegador nunca baixa essa imagem direto. Ele pede `GET /api/games/{id}/cover`, e então o FastAPI:
+
+1. baixa a original só no primeiro pedido;
+2. reduz para 360x540 em WebP com o Pillow (cerca de 25 KB, contra 50 a 110 KB da original). Capas quadradas e logos são encaixados inteiros sobre a cor do jogo, sem corte;
+3. guarda o resultado em `python-api/.cache/covers/` e o entrega com `Cache-Control` de 1 dia e `ETag`.
+
+No frontend, as imagens usam `loading="lazy"`, então só são baixadas quando aparecem na tela. Enquanto carregam, a cor do jogo fica de fundo e, se a capa falhar, o card volta a mostrar o título. As 24 capas somam cerca de 570 KB na primeira visita. Depois disso, ficam no cache do navegador.
+
+As imagens pertencem aos respectivos estúdios e são usadas aqui só como ilustração em um projeto acadêmico.
+
 ## Como rodar
 
 Pré-requisitos: Python 3.11+ e JDK 25. Não é preciso instalar o Maven, porque o projeto usa o wrapper `mvnw`.
@@ -50,6 +62,7 @@ A documentação interativa do FastAPI fica em http://localhost:8000/docs, e o c
 | GET | `/api/games?q=&genre=&platform=&sort=popular\|rating\|year\|title` | Busca e filtra jogos, com média e nº de registros da comunidade |
 | GET | `/api/games/{id}` | Detalhe de um jogo |
 | POST | `/api/games` | Adiciona um jogo ao catálogo |
+| GET | `/api/games/{id}/cover` | Capa reduzida (WebP 360x540), gerada e guardada no primeiro pedido |
 | GET | `/api/games/{id}/stats` | Média, curtidas e distribuição das notas (½★ a 5★) |
 | GET | `/api/genres`, `/api/platforms` | Valores disponíveis para os filtros |
 | GET | `/api/recommendations/{userId}?limit=8` | Recomendações personalizadas, com o motivo de cada uma |

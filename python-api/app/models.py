@@ -8,6 +8,9 @@ class GameCreate(BaseModel):
     genres: list[str] = Field(default_factory=list)
     platforms: list[str] = Field(default_factory=list)
     summary: str = ""
+    # imagem original da capa; o serviço baixa uma vez e entrega uma versão reduzida em /cover
+    coverUrl: str | None = Field(default=None, max_length=500, pattern=r"^https://")
+    # cor de fundo enquanto a capa carrega, ou quando o jogo não tem capa
     color: str = Field(default="#4a5568", pattern=r"^#[0-9a-fA-F]{6}$")
 
 

@@ -8,10 +8,12 @@ from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import recommender
 from .catalog import catalog
+from .covers import CoverUnavailable, cover_path
 from .models import Game, GameCreate, GameStats, GameWithStats, RecommendationResponse
 from .social_client import SocialUnavailable, fetch_reviews
 
@@ -82,6 +84,18 @@ def get_game(game_id: int):
         raise HTTPException(404, "Jogo não encontrado")
     reviews, _ = _all_reviews()
     return recommender.with_stats(game, recommender.community_stats(reviews))
+
+
+@app.get("/api/games/{game_id}/cover", response_class=FileResponse)
+def game_cover(game_id: int):
+    game = catalog.get(game_id)
+    if not game:
+        raise HTTPException(404, "Jogo não encontrado")
+    try:
+        path = cover_path(game)
+    except CoverUnavailable as exc:
+        raise HTTPException(404, f"Capa indisponível: {exc}") from exc
+    return FileResponse(path, media_type="image/webp", headers={"Cache-Control": "public, max-age=86400"})
 
 
 @app.get("/api/games/{game_id}/stats", response_model=GameStats)

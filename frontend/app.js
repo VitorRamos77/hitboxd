@@ -102,7 +102,13 @@ function requireUser() {
 // ---------------------------------------------------------------------------
 function cover(game, cls = "") {
   if (!game) return `<div class="cover ${cls}" style="--c:#333"><span class="cover-title">?</span></div>`;
-  return `<div class="cover ${cls}" style="--c:${esc(game.color)}">
+  // a cor fica de fundo enquanto a imagem carrega; se a capa falhar, o título volta a aparecer
+  const img = game.coverUrl
+    ? `<img src="${CATALOG_API}/api/games/${game.id}/cover" alt="" width="360" height="540" loading="lazy" decoding="async"
+         onload="this.parentNode.classList.add('has-img')" onerror="this.remove()">`
+    : "";
+  return `<div class="cover ${cls}" style="--c:${esc(game.color)}" role="img" aria-label="Capa de ${esc(game.title)}">
+    ${img}
     <span class="cover-title">${esc(game.title)}</span>
     <span class="cover-year">${esc(game.year)}</span>
   </div>`;
@@ -712,7 +718,8 @@ function newGameModal(genres) {
       <datalist id="genre-list">${genres.map((g) => `<option value="${esc(g)}">`).join("")}</datalist>
       <label>Plataformas (separadas por vírgula) <input type="text" name="platforms" placeholder="PC, Switch"></label>
       <label>Resumo <textarea name="summary" style="min-height:70px"></textarea></label>
-      <label>Cor da capa <input type="color" name="color" value="#4a6d8c"></label>
+      <label>URL da imagem da capa (opcional) <input type="text" name="coverUrl" inputmode="url" pattern="https://.+" placeholder="https://…"></label>
+      <label>Cor de fundo <input type="color" name="color" value="#4a6d8c"></label>
       <div class="form-error" id="form-error"></div>
       <div class="form-actions">
         <button type="button" class="btn" data-close>Cancelar</button>
@@ -726,7 +733,13 @@ function newGameModal(genres) {
       try {
         const game = await catalog("/api/games", {
           method: "POST",
-          body: { ...data, year: Number(data.year), genres: split(data.genres), platforms: split(data.platforms) },
+          body: {
+            ...data,
+            year: Number(data.year),
+            genres: split(data.genres),
+            platforms: split(data.platforms),
+            coverUrl: data.coverUrl.trim() || null,
+          },
         });
         state.games.set(game.id, game);
         modal.close();
