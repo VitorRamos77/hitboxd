@@ -3,7 +3,7 @@
 import { CATALOG_API, STATUS_LABEL } from "./config.js";
 import { state } from "./state.js";
 import { lightbox, modal, modalBody } from "./dom.js";
-import { esc, formatDate, toast } from "./utils.js";
+import { esc, formatDate, toast, todayIso } from "./utils.js";
 import { social, uploadAvatar } from "./api.js";
 import { avatar, cover, personCard, starInput } from "./components.js";
 import { loadUsers } from "./session.js";
@@ -117,7 +117,7 @@ export function openModal(html, onReady) {
 }
 
 export function logModal(game, entry = null) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIso();
   const statusOptions = Object.entries(STATUS_LABEL)
     .map(([k, label]) => `<option value="${k}" ${k === (entry?.status ?? "JOGADO") ? "selected" : ""}>${label}</option>`).join("");
   const platformOptions = ['<option value="">—</option>', ...game.platforms.map((p) =>

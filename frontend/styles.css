@@ -107,6 +107,7 @@ h1, h2, h3 { font-family: var(--font-display); line-height: 1.2; margin: 0; }
 .btn:disabled { opacity: .5; cursor: default; }
 .link-btn { background: none; border: 0; padding: 0; color: var(--text-dim); cursor: pointer; }
 .link-btn:hover { color: var(--accent); }
+.link-btn.danger:hover { color: var(--hit); }
 
 .section { margin-top: 40px; }
 .section:first-child { margin-top: 0; }

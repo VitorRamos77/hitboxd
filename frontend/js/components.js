@@ -72,6 +72,8 @@ export function reviewItem(review, { showGame = true, showUser = true } = {}) {
         ${review.platform ? `<span>${esc(review.platform)}</span>` : ""}
         ${likeButton(review)}
         <span>${timeAgo(review.createdAt)}</span>
+        ${review.userId === state.userId ? `<button class="link-btn" data-edit-review="${review.id}">editar</button>
+          <button class="link-btn danger" data-delete-review="${review.id}">excluir</button>` : ""}
       </div>
     </div>
   </article>`;

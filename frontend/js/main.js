@@ -5,12 +5,12 @@ import { app, lightbox, modal } from "./dom.js";
 import { toast } from "./utils.js";
 import { catalog, social } from "./api.js";
 import { likeButton } from "./components.js";
-import { toggleFollow } from "./modals.js";
+import { logModal, toggleFollow } from "./modals.js";
 import { checkServices, loadUsers, requireUser, setAdminToken } from "./session.js";
 import { render } from "./router.js";
 import "./search.js"; // a busca do topo se liga sozinha ao carregar
 
-// cliques delegados: seguir, curtir avaliação e revelar spoiler
+// cliques delegados: seguir, curtir, editar ou excluir avaliação e revelar spoiler
 app.addEventListener("click", async (e) => {
   const followBtn = e.target.closest("[data-follow]");
   if (followBtn) {
@@ -24,6 +24,25 @@ app.addEventListener("click", async (e) => {
     const review = await social(`/api/reviews/${likeBtn.dataset.likeReview}/like`, { method: "POST" })
       .catch((err) => toast(err.message, true));
     if (review) likeBtn.outerHTML = likeButton(review);
+    return;
+  }
+  const editBtn = e.target.closest("[data-edit-review]");
+  if (editBtn) {
+    const review = await social(`/api/reviews/${editBtn.dataset.editReview}`).catch((err) => toast(err.message, true));
+    const game = review && state.games.get(review.gameId);
+    if (game) logModal(game, review);
+    return;
+  }
+  const deleteBtn = e.target.closest("[data-delete-review]");
+  if (deleteBtn) {
+    if (!confirm("Excluir esta avaliação?")) return;
+    try {
+      await social(`/api/reviews/${deleteBtn.dataset.deleteReview}`, { method: "DELETE" });
+      toast("Avaliação excluída");
+      render();
+    } catch (err) {
+      toast(err.message, true);
+    }
     return;
   }
   const expand = e.target.closest("[data-expand]");

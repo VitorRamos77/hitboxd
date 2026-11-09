@@ -75,11 +75,11 @@ export async function gamePage(id) {
   // jogos parecidos e screenshots chegam depois, sem atrasar o resto da página
   catalog(`/api/games/${id}/similar?limit=6`).then((games) => {
     const box = document.getElementById("similar");
-    if (box && games.length) box.innerHTML = section("Jogos parecidos", `<div class="grid">${games.map((g) => gameCard(g)).join("")}</div>`);
+    if (isCurrent() && box && games.length) box.innerHTML = section("Jogos parecidos", `<div class="grid">${games.map((g) => gameCard(g)).join("")}</div>`);
   }).catch(() => {});
   const shots = await catalog(`/api/games/${id}/screenshots`).catch(() => []);
   const gallery = document.getElementById("gallery");
-  if (!gallery || !shots.length) return;
+  if (!isCurrent() || !gallery || !shots.length) return;
   gallery.innerHTML = section("Imagens", `<div class="gallery">${shots.map((s, i) => `
     <button class="shot" data-shot="${i}" aria-label="Ampliar imagem ${i + 1} de ${shots.length}">
       <img src="${CATALOG_API}${s.thumb}" alt="" width="480" height="270" loading="lazy" decoding="async"
