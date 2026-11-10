@@ -13,26 +13,133 @@ monte listas e descubra o próximo jogo com recomendações baseadas nas suas av
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1-6DB33F?logo=springboot&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/Frontend-HTML%20%2B%20CSS%20%2B%20JS-F7DF1E?logo=javascript&logoColor=black)
 
+<img src="docs/images/inicio.jpg" alt="Página inicial do hitBoxd com os jogos populares da comunidade" width="900">
+
 </div>
+
+---
+
+## ⚡ Início rápido
+
+Para ver o site funcionando em poucos minutos, siga os 3 passos abaixo. Nenhuma configuração extra é necessária.
+
+**Você precisa ter instalado:** [Python 3.11+](https://www.python.org/downloads/) e o [JDK 25](https://adoptium.net/) (o Maven **não** precisa ser instalado: o projeto já traz o `mvnw`).
+
+### Passo 1: subir o serviço da comunidade (Java)
+
+Abra um terminal na pasta do projeto e rode:
+
+```powershell
+cd java-api
+.\mvnw.cmd spring-boot:run
+```
+
+<sub>No Linux/macOS: `./mvnw spring-boot:run`. Na primeira vez o Maven baixa as dependências, o que pode levar alguns minutos.</sub>
+
+Deixe esse terminal aberto. O serviço está pronto quando aparecer `Started HitboxdApiApplication`.
+
+### Passo 2: subir o catálogo e o site (Python)
+
+Abra **outro** terminal na pasta do projeto e rode:
+
+```powershell
+cd python-api
+python -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\python -m uvicorn app.main:app --port 8000
+```
+
+<sub>No Linux/macOS, troque `.venv\Scripts\python` por `.venv/bin/python`. Os dois primeiros comandos (`venv` e `pip install`) só são necessários na primeira vez.</sub>
+
+### Passo 3: abrir o site
+
+👉 Acesse **http://localhost:8000** no navegador.
+
+Para usar as partes sociais, clique em **Entrar → Criar conta** e crie uma conta com usuário e senha. O site já vem com 24 jogos, 5 usuários de exemplo, avaliações, diários e listas.
+
+> [!TIP]
+> **Algo deu errado?**
+> - *"Serviço da comunidade fora do ar"* no topo do site: o passo 1 não está rodando (ou ainda está iniciando). Os jogos aparecem, mas avaliações, perfis e listas ficam vazios.
+> - *`python` não encontrado*: no Windows, tente `py` no lugar de `python`.
+> - *Porta já em uso*: feche outra cópia do serviço que esteja rodando na porta 8000 ou 8080.
+> - O site precisa ser aberto pelo endereço `http://localhost:8000`, e não clicando duas vezes no `index.html`.
+
+Recursos opcionais, como o login com o Google, a área do administrador e as senhas das contas de exemplo, são ligados por [variáveis de ambiente](#️-variáveis-de-ambiente).
 
 ---
 
 ## Sumário
 
-- [O que dá para fazer](#-o-que-dá-para-fazer)
-- [Arquitetura](#-arquitetura)
-- [Como rodar](#-como-rodar)
-- [Variáveis de ambiente](#-variáveis-de-ambiente)
+- [Início rápido](#-início-rápido)
+- [O que é o hitBoxd](#-o-que-é-o-hitboxd)
+- [Conhecendo o site](#️-conhecendo-o-site)
+- [Todos os recursos](#-todos-os-recursos)
+- [Arquitetura](#️-arquitetura)
+- [Variáveis de ambiente](#️-variáveis-de-ambiente)
 - [Contas e login](#-contas-e-login)
-- [Área do administrador](#-área-do-administrador)
+- [Área do administrador](#️-área-do-administrador)
 - [Como funciona por dentro](#-como-funciona-por-dentro)
 - [Estrutura do projeto](#-estrutura-do-projeto)
 - [Referência da API](#-referência-da-api)
-- [Limitações](#-limitações)
+- [Limitações](#️-limitações)
 
 ---
 
-## ✨ O que dá para fazer
+## 🎯 O que é o hitBoxd
+
+O hitBoxd é uma rede social para quem joga videogame, inspirada em sites de registro de filmes. Cada pessoa:
+
+1. **encontra** jogos no catálogo e vê detalhes, imagens e quanto tempo cada um leva para terminar;
+2. **registra** o que jogou, com nota, resenha e situação (jogando, zerado, platinado...);
+3. **acompanha** cada partida num diário, sessão por sessão;
+4. **organiza** jogos em listas e **segue** outras pessoas para ver o que elas andam jogando;
+5. **descobre** o próximo jogo com recomendações calculadas a partir das próprias avaliações.
+
+O sistema é dividido em dois serviços: um em **Python (FastAPI)**, dono do catálogo de jogos, e outro em **Java (Spring Boot)**, dono da parte social. O site é feito em **HTML, CSS e JavaScript puro**, sem frameworks.
+
+---
+
+## 🖼️ Conhecendo o site
+
+### Catálogo e busca
+
+A página **Jogos** lista todo o catálogo com capa, nota média e número de avaliações. Dá para filtrar por gênero e plataforma e ordenar por popularidade, nota, ano ou título. A busca do topo sugere jogos e pessoas enquanto você digita, sem diferenciar maiúsculas e acentos.
+
+<img src="docs/images/busca.jpg" alt="Catálogo de jogos com a busca do topo sugerindo Hollow Knight" width="900">
+
+### Página do jogo
+
+Cada jogo tem uma página com capa, gêneros, plataformas, descrição, um texto "para quem é", galeria de screenshots (clique para ampliar), os tempos do [HowLongToBeat](https://howlongtobeat.com), a distribuição das notas, as avaliações da comunidade, as listas em que aparece e jogos parecidos.
+
+<img src="docs/images/jogo.jpg" alt="Página do Hollow Knight com nota média, imagens, descrição, tempos para terminar e avaliações" width="900">
+
+### Avaliar um jogo
+
+O botão **★ Avaliar jogo** abre o registro: data em que jogou, situação, plataforma, nota em meias estrelas, curtida, resenha e aviso de spoiler. Depois, a própria avaliação pode ser **editada** ou **excluída** direto na lista de avaliações.
+
+<img src="docs/images/avaliar.jpg" alt="Janela de avaliação com data, situação, plataforma, nota, curtida e resenha" width="900">
+
+### Diário de jogo
+
+Para os jogos em andamento, o **Diário** guarda cada sessão: o que aconteceu, o dia e quantas horas foram jogadas. As anotações ficam agrupadas por dia e o total de horas aparece no topo.
+
+<img src="docs/images/diario.jpg" alt="Diário do Dead Cells com três atualizações agrupadas por dia" width="900">
+
+### Recomendações e feed
+
+Com login, a página inicial mostra **jogos recomendados** com base no que você avaliou bem, os jogos populares, a atividade de quem você segue e as listas mais recentes.
+
+<img src="docs/images/recomendacoes.jpg" alt="Página inicial com login, mostrando os jogos recomendados e os populares" width="900">
+
+### Perfis e comunidade
+
+Cada perfil mostra estatísticas, jogos favoritos, atividade recente e listas da pessoa, além do botão para segui-la. A página **Encontrar pessoas** busca usuários por nome ou @usuário.
+
+<img src="docs/images/perfil.jpg" alt="Perfil de um usuário com favoritos, atividade recente e listas" width="900">
+
+---
+
+## ✨ Todos os recursos
 
 | | Recurso | Descrição |
 |---|---|---|
@@ -87,48 +194,19 @@ O serviço Java guarda só o `gameId` de cada jogo. O serviço Python consulta a
 
 ---
 
-## 🚀 Como rodar
+### Endereços úteis
 
-### Pré-requisitos
-
-- **Python 3.11+**
-- **JDK 25**. Não é preciso instalar o Maven, porque o projeto usa o wrapper `mvnw`.
-
-### 1. Serviço da comunidade (Spring Boot)
-
-```bash
-cd java-api
-./mvnw spring-boot:run          # Windows (PowerShell): .\mvnw.cmd spring-boot:run
-```
-
-### 2. Serviço de catálogo (FastAPI) + frontend
-
-Em outro terminal:
-
-```bash
-cd python-api
-python -m venv .venv
-.venv/Scripts/activate          # Linux/macOS: source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --port 8000
-```
-
-### 3. Abra o site
-
-👉 **http://localhost:8000**
-
-Também ficam disponíveis:
-
-- 📘 Documentação interativa do FastAPI: http://localhost:8000/docs
-- 🗄️ Console do H2: http://localhost:8080/h2-console (JDBC URL `jdbc:h2:mem:hitboxd`, usuário `sa`, sem senha)
-
-> **Dica:** suba o Spring Boot primeiro. Se ele estiver fora do ar, o catálogo continua funcionando, mas o site mostra um aviso e as partes sociais ficam vazias.
+| Endereço | O que é |
+|---|---|
+| http://localhost:8000 | O site |
+| http://localhost:8000/docs | Documentação interativa da API do catálogo (FastAPI) |
+| http://localhost:8080/h2-console | Console do banco H2 (JDBC URL `jdbc:h2:mem:hitboxd`, usuário `sa`, sem senha) |
 
 ---
 
 ## ⚙️ Variáveis de ambiente
 
-Tudo é opcional: sem nenhuma variável, o site funciona, mas sem a área do admin e sem o login com o Google.
+Tudo é opcional: sem nenhuma variável o site funciona (é o que o [Início rápido](#-início-rápido) faz), mas sem a área do admin, sem o login com o Google e sem a senha das contas de exemplo.
 
 | Variável | Serviço | Para quê |
 |---|---|---|
@@ -207,7 +285,7 @@ Com o admin logado, cada página de jogo ganha o botão **✎ Editar página** e
 Há dois jeitos de ser administrador:
 
 - **Conta administradora:** entre no site **com o Google** usando um e-mail da lista `ADMIN_EMAILS`. A conta vira admin na hora, e o menu da conta ganha o item **Administração**. Só vale o e-mail confirmado pelo Google: quem cria uma conta com senha digitando um desses e-mails **não** vira admin.
-- **Login próprio do admin:** em `/#/admin`, com o usuário `admin` (ou o valor de `ADMIN_USERNAME`). A **senha fica na variável de ambiente `ADMIN_PASSWORD`**, definida ao subir o FastAPI (veja [Variáveis de ambiente](#-variáveis-de-ambiente)), e não fica no código nem no repositório.
+- **Login próprio do admin:** em `/#/admin`, com o usuário `admin` (ou o valor de `ADMIN_USERNAME`). A **senha fica na variável de ambiente `ADMIN_PASSWORD`**, definida ao subir o FastAPI (veja [Variáveis de ambiente](#️-variáveis-de-ambiente)), e não fica no código nem no repositório.
 
 ---
 
