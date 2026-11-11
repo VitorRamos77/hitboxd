@@ -72,6 +72,7 @@ Recursos opcionais, como o login com o Google, a área do administrador e as sen
 
 - [Início rápido](#-início-rápido)
 - [O que é o hitBoxd](#-o-que-é-o-hitboxd)
+- [Integrantes](#-integrantes)
 - [Conhecendo o site](#️-conhecendo-o-site)
 - [Todos os recursos](#-todos-os-recursos)
 - [Arquitetura](#️-arquitetura)
@@ -96,6 +97,17 @@ O hitBoxd é uma rede social para quem joga videogame, inspirada em sites de reg
 5. **descobre** o próximo jogo com recomendações calculadas a partir das próprias avaliações.
 
 O sistema é dividido em dois serviços: um em **Python (FastAPI)**, dono do catálogo de jogos, e outro em **Java (Spring Boot)**, dono da parte social. O site é feito em **HTML, CSS e JavaScript puro**, sem frameworks.
+
+---
+
+## 👥 Integrantes
+
+| Integrante | Atribuições |
+|---|---|
+| **Vitor Ramos** | Front-end em HTML, CSS e JavaScript (páginas, rotas por `#hash`, busca e janelas) e integração do site com as duas APIs. |
+| **Busnello** | API Python (FastAPI): catálogo de jogos, capas e screenshots em WebP, recomendações e área do administrador. |
+| **Bobeda** | API Java (Spring Boot): contas, login com senha e com o Google, sessões e avaliações com curtidas. |
+| **Pedro** | API Java (Spring Boot): diário de jogo, listas, seguidores e feed, além dos testes e do README. |
 
 ---
 
