@@ -15,7 +15,7 @@ export async function adminPage() {
     app.innerHTML = `
       <div class="admin-login">
         <h1 class="page-title">Área do administrador</h1>
-        <p class="muted">Entre para adicionar e editar as páginas dos jogos. Contas administradoras não precisam disso: basta entrar no site com elas.</p>
+        <p class="muted">Entre para adicionar e editar as páginas dos jogos.</p>
         <form class="form" id="admin-login-form">
           <label>Usuário <input type="text" name="username" required autocomplete="username"></label>
           <label>Senha <input type="password" name="password" required autocomplete="current-password"></label>
@@ -60,7 +60,7 @@ export async function adminPage() {
       </div>
       <div class="admin-actions">
         <a class="btn primary" href="#/admin/game/new">+ Adicionar jogo</a>
-        ${state.adminToken ? '<button class="btn" id="admin-logout">Sair do admin</button>' : ""}
+        <button class="btn" id="admin-logout">Sair do admin</button>
       </div>
     </div>
     <div class="admin-updates" id="admin-updates"></div>

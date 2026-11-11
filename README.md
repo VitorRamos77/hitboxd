@@ -64,7 +64,7 @@ Para usar as partes sociais, clique em **Entrar → Criar conta** e crie uma con
 > - *Porta já em uso*: feche outra cópia do serviço que esteja rodando na porta 8000 ou 8080.
 > - O site precisa ser aberto pelo endereço `http://localhost:8000`, e não clicando duas vezes no `index.html`.
 
-Recursos opcionais, como o login com o Google, a área do administrador e as senhas das contas de exemplo, são ligados por [variáveis de ambiente](#️-variáveis-de-ambiente).
+Recursos opcionais, como a área do administrador e a senha das contas de exemplo, são ligados por [variáveis de ambiente](#️-variáveis-de-ambiente).
 
 ---
 
@@ -106,7 +106,7 @@ O sistema é dividido em dois serviços: um em **Python (FastAPI)**, dono do cat
 |---|---|
 | **Vitor Ramos** | Front-end em HTML, CSS e JavaScript (páginas, rotas por `#hash`, busca e janelas) e integração do site com as duas APIs. |
 | **Busnello** | API Python (FastAPI): catálogo de jogos, capas e screenshots em WebP, recomendações e área do administrador. |
-| **Bobeda** | API Java (Spring Boot): contas, login com senha e com o Google, sessões e avaliações com curtidas. |
+| **Bobeda** | API Java (Spring Boot): contas, login com usuário e senha, sessões e avaliações com curtidas. |
 | **Pedro** | API Java (Spring Boot): diário de jogo, listas, seguidores e feed, além dos testes e do README. |
 
 ---
@@ -164,7 +164,7 @@ Cada perfil mostra estatísticas, jogos favoritos, atividade recente e listas da
 | 💡 | **Recomendações** | Calculadas a partir dos jogos que você avaliou: jogos parecidos com os que você gostou, pelo conteúdo e pela opinião da comunidade. |
 | 👥 | **Comunidade** | **Encontrar pessoas** por nome ou @usuário e segui-las, feed com a atividade de quem você segue, curtidas em resenhas (curtir e descurtir) e popup de seguidores no perfil. |
 | ✍️ | **Textos** | Resenhas, diário, bio e descrições têm limite de caracteres com contador, mantêm as quebras de linha e as resenhas longas aparecem com "Ler mais". |
-| 🔐 | **Contas** | Cadastro e login com usuário e senha ou **com a conta do Google**. Só o dono de cada conta altera os próprios dados. |
+| 🔐 | **Contas** | Cadastro e login com usuário e senha. Só o dono de cada conta altera os próprios dados. |
 | 🔄 | **Atualizações automáticas** | Os tempos do HowLongToBeat são atualizados sozinhos em segundo plano. |
 | 🛠️ | **Administrador** | Uma área protegida, onde só o admin adiciona e edita as páginas dos jogos. |
 
@@ -181,17 +181,14 @@ flowchart LR
     J["☕ Spring Boot · :8080<br/>contas e login, avaliações, diário,<br/>listas, seguidores, feed"]
     S[("Steam / Wikipedia")]
     L[("HowLongToBeat")]
-    G[("Google<br/>login")]
     H[("H2<br/>em memória")]
     C[(".cache<br/>imagens e tempos")]
 
     B -- "jogos, capas, screenshots" --> P
     B -- "login, perfis, avaliações, diário" --> J
-    B -. "botão Entrar com o Google" .-> G
     P -- "GET /api/reviews<br/>(médias e recomendações)" --> J
     P -. "baixa cada imagem 1 vez" .-> S
     P -. "tempos, 1 vez por dia" .-> L
-    J -. "chaves públicas" .-> G
     P --- C
     J --- H
 ```
@@ -199,7 +196,7 @@ flowchart LR
 | Serviço | Tecnologia | Responsabilidade |
 |---|---|---|
 | `python-api/` | **FastAPI** + Pillow | Dono do **catálogo**: dados dos jogos, capas e screenshots otimizadas, estatísticas, recomendações, jogos parecidos, área do admin e atualização automática dos tempos. Também serve o frontend. |
-| `java-api/` | **Spring Boot** + JPA + H2 | Dono da **parte social**: contas e login (senha e Google), fotos de perfil, avaliações, curtidas, diário de jogo, listas, seguidores e feed. |
+| `java-api/` | **Spring Boot** + JPA + H2 | Dono da **parte social**: contas e login, fotos de perfil, avaliações, curtidas, diário de jogo, listas, seguidores e feed. |
 | `frontend/` | HTML + CSS + JavaScript puro (módulos ES nativos, sem build) | Página única com rotas por `#hash` que conversa com os dois serviços. |
 
 O serviço Java guarda só o `gameId` de cada jogo. O serviço Python consulta as avaliações no Java para calcular médias, a distribuição das notas e as recomendações.
@@ -218,15 +215,13 @@ O serviço Java guarda só o `gameId` de cada jogo. O serviço Python consulta a
 
 ## ⚙️ Variáveis de ambiente
 
-Tudo é opcional: sem nenhuma variável o site funciona (é o que o [Início rápido](#-início-rápido) faz), mas sem a área do admin, sem o login com o Google e sem a senha das contas de exemplo.
+Tudo é opcional: sem nenhuma variável o site funciona (é o que o [Início rápido](#-início-rápido) faz), mas sem a área do admin e sem a senha das contas de exemplo.
 
 | Variável | Serviço | Para quê |
 |---|---|---|
 | `ADMIN_USERNAME` | FastAPI | Usuário do administrador (padrão `admin`). |
 | `ADMIN_PASSWORD` | FastAPI | Senha do administrador. Sem ela, a área do admin fica desativada. |
 | `HLTB_REFRESH_HOURS` | FastAPI | Intervalo, em horas, entre as atualizações automáticas dos tempos do HowLongToBeat (padrão `24`; `0` desliga). |
-| `GOOGLE_CLIENT_ID` | Spring Boot | Client ID do Google para o botão **Entrar com o Google** (veja abaixo). |
-| `ADMIN_EMAILS` | Spring Boot | E-mails das contas administradoras, separados por vírgula (padrão: `vitorrreg@gmail.com`). |
 | `DEMO_PASSWORD` | Spring Boot | Senha das contas de exemplo. Sem ela, as contas de exemplo existem, mas não entram com senha. |
 
 Exemplo no PowerShell:
@@ -251,8 +246,7 @@ ADMIN_PASSWORD="uma-senha-forte" uvicorn app.main:app --port 8000
 Clique em **Entrar** no topo do site. Dá para:
 
 - **criar uma conta** com nome de usuário, nome de exibição, senha (mínimo de 8 caracteres) e e-mail opcional;
-- **entrar** com usuário e senha;
-- **entrar com o Google**, que cria a conta na primeira vez. Se já existir uma conta com o mesmo e-mail, ela é ligada ao Google.
+- **entrar** com usuário e senha.
 
 Depois de entrar, o botão com a sua foto abre o menu da conta: perfil, diário, listas, dados da conta (nome, bio e foto), trocar de conta e sair.
 
@@ -268,19 +262,6 @@ Ao iniciar, os serviços carregam dados de exemplo: **24 jogos, 5 usuários, 32 
 | `lucas_coop` | Jogos cooperativos e Nintendo. Está jogando Minecraft com os amigos. |
 | `marina_puzzle` | Puzzles e mistério. Está jogando Disco Elysium. |
 
-### Configurar o login com o Google
-
-1. No [Google Cloud Console](https://console.cloud.google.com/apis/credentials), crie uma credencial **ID do cliente OAuth** do tipo **Aplicativo da Web**.
-2. Em **Origens JavaScript autorizadas**, adicione `http://localhost:8000`.
-3. Suba o Spring Boot com o client ID:
-
-   ```powershell
-   $env:GOOGLE_CLIENT_ID = "1234567890-abc.apps.googleusercontent.com"
-   .\mvnw.cmd spring-boot:run
-   ```
-
-O botão **Entrar com o Google** aparece sozinho quando o client ID está configurado.
-
 ---
 
 ## 🛠️ Área do administrador
@@ -294,10 +275,7 @@ Só o administrador pode **adicionar e editar jogos**. A área fica em **http://
 
 Com o admin logado, cada página de jogo ganha o botão **✎ Editar página** e o topo mostra o selo **ADMIN**.
 
-Há dois jeitos de ser administrador:
-
-- **Conta administradora:** entre no site **com o Google** usando um e-mail da lista `ADMIN_EMAILS`. A conta vira admin na hora, e o menu da conta ganha o item **Administração**. Só vale o e-mail confirmado pelo Google: quem cria uma conta com senha digitando um desses e-mails **não** vira admin.
-- **Login próprio do admin:** em `/#/admin`, com o usuário `admin` (ou o valor de `ADMIN_USERNAME`). A **senha fica na variável de ambiente `ADMIN_PASSWORD`**, definida ao subir o FastAPI (veja [Variáveis de ambiente](#️-variáveis-de-ambiente)), e não fica no código nem no repositório.
+Para entrar como administrador, abra `/#/admin` e use o usuário `admin` (ou o valor de `ADMIN_USERNAME`). A **senha fica na variável de ambiente `ADMIN_PASSWORD`**, definida ao subir o FastAPI (veja [Variáveis de ambiente](#️-variáveis-de-ambiente)), e não fica no código nem no repositório. O login do admin é separado das contas do site e vale por 8 horas.
 
 ---
 
@@ -330,9 +308,7 @@ A mesma semelhança gera a seção **Jogos parecidos** de cada página (`GET /ap
 - **Senhas:** guardadas só como hash **BCrypt**. Uma senha errada leva 1 s para responder, o que dificulta ficar tentando.
 - **Sessão:** o login devolve um token aleatório válido por 30 dias. O banco guarda apenas o hash SHA-256 do token, e o navegador o envia no cabeçalho `Authorization: Bearer <token>`.
 - **Quem faz o quê:** a API descobre o usuário pelo token, nunca por um `userId` enviado no corpo do pedido. Por isso só o autor altera a própria avaliação, entrada do diário ou lista, e cada pessoa só altera a própria conta. Sem login a resposta é `401`; mexer no que é de outra pessoa dá `403`.
-- **Google:** o botão do Google entrega ao navegador um *ID token* assinado. O Spring confere a assinatura com as chaves públicas do Google e verifica o emissor, o público (o seu client ID), a validade e se o e-mail foi verificado. Só então aceita o login.
-- **E-mail verificado:** só o Google confirma e-mails. Se alguém criou uma conta com senha usando o e-mail de outra pessoa, o login com o Google do dono verdadeiro **não** entra nessa conta: o e-mail passa para a conta do Google. Por isso, ser admin depende de e-mail verificado.
-- **Admin pela conta:** nas rotas de admin, o FastAPI aceita o token de uma conta administradora e confirma com o Spring (`GET /api/auth/me`, campo `admin`), guardando a resposta por 1 minuto.
+- **Admin:** o login do admin acontece no FastAPI (`POST /api/admin/login`), que devolve um token próprio. As rotas de escrita do catálogo exigem esse token no cabeçalho `Authorization`, conferido pela dependência `require_admin`.
 
 </details>
 
@@ -425,7 +401,7 @@ hitboxd/
 │       ├── main.js            # ponto de entrada: eventos globais e início do site
 │       ├── router.js          # rotas por #hash e proteção contra páginas antigas
 │       ├── api.js             # pedidos ao catálogo (FastAPI) e à comunidade (Spring)
-│       ├── session.js         # login, cadastro, Google e menu da conta
+│       ├── session.js         # login, cadastro e menu da conta
 │       ├── search.js          # busca do topo com sugestões
 │       ├── components.js      # capas, cards, estrelas, avaliações, botão de seguir...
 │       ├── modals.js          # avaliar, listas, seguidores, dados da conta, imagens
@@ -450,13 +426,13 @@ hitboxd/
     ├── pom.xml
     └── src/
         ├── main/java/br/ime/hitboxd/
-        │   ├── auth/          # cadastro, login, sessões e login com o Google
+        │   ├── auth/          # cadastro, login e sessões
         │   ├── user/          # perfis, fotos e seguidores
         │   ├── review/        # avaliações e curtidas
         │   ├── journal/       # diário de jogo
         │   ├── gamelist/      # listas personalizadas
         │   └── common/        # CORS, erros e dados de exemplo
-        └── test/              # testes (inclui a verificação dos tokens do Google)
+        └── test/              # testes (login, sessões e permissões)
 ```
 
 ---
@@ -501,11 +477,9 @@ Os erros voltam como `{"detail": "mensagem"}`, com status `400`, `401`, `403`, `
 
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/api/auth/config` | Se o login com o Google está ativo (e o client ID) |
 | POST | `/api/auth/register` | Cria conta (`username`, `displayName`, `password`, `email` opcional) e já entra |
 | POST | `/api/auth/login` | Entra com usuário e senha |
-| POST | `/api/auth/google` | Entra com o Google (`credential` = ID token do botão do Google) |
-| GET | `/api/auth/me` | Dados da própria conta, incluindo se é administradora (`admin`) 🔐 |
+| GET | `/api/auth/me` | Dados da própria conta 🔐 |
 | POST | `/api/auth/logout` | Encerra a sessão 🔐 |
 
 **Usuários e seguidores**

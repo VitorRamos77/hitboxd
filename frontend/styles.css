@@ -82,9 +82,6 @@ h1, h2, h3 { font-family: var(--font-display); line-height: 1.2; margin: 0; }
 .account-menu .danger:hover { color: var(--hit); }
 .account-menu hr { border: 0; border-top: 1px solid var(--line); margin: 6px 4px; }
 
-.login-divider { display: flex; align-items: center; gap: 12px; margin: 22px 0 12px; color: var(--text-faint); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
-.login-divider::before, .login-divider::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
-.google-slot { display: flex; justify-content: center; min-height: 44px; margin-top: 18px; }
 .login-users { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
 .login-user { display: flex; align-items: center; gap: 10px; text-align: left; background: var(--bg-sunken); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
 .login-user:hover { border-color: var(--accent); }

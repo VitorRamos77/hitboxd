@@ -79,7 +79,7 @@ public class UserService {
 				reviews.countWrittenByUserId(id), lists.countByOwnerId(id), following, users.countFollowers(id));
 	}
 
-	/** Cria a conta; a senha ou o vínculo com o Google ficam por conta do {@code AuthService}. */
+	/** Cria a conta; a senha fica por conta do {@code AuthService}. */
 	@Transactional
 	public User newUser(String username, String displayName, String bio) {
 		if (users.existsByUsernameIgnoreCase(username)) {

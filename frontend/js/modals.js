@@ -259,11 +259,10 @@ async function resizePhoto(file, size = 256) {
 
 export async function accountModal() {
   const [profile, me] = await Promise.all([social(`/api/users/${state.userId}`), social("/api/auth/me")]);
-  const how = [me.hasPassword && "usuário e senha", me.googleLinked && "conta Google"].filter(Boolean).join(" ou ");
   let photo = null; // Blob com a nova foto, null para manter ou "remove" para tirar
   openModal(`
     <h2>Dados da conta</h2>
-    <div class="muted">Membro desde ${formatDate(profile.createdAt, { month: "long", year: "numeric" })}${how ? ` · entra com ${how}` : ""}</div>
+    <div class="muted">Membro desde ${formatDate(profile.createdAt, { month: "long", year: "numeric" })}</div>
     <form class="form" id="account-form">
       <div class="photo-field">
         <div id="photo-preview">${avatar(profile, "big")}</div>

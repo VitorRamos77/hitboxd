@@ -63,7 +63,7 @@ export async function uploadAvatar(userId, blob) {
  * administradoras, o próprio token de sessão (o FastAPI confere no serviço Java).
  */
 export async function adminRequest(path, options = {}) {
-  const token = state.adminToken || state.token;
+  const token = state.adminToken;
   try {
     return await catalog(path, { ...options, headers: { Authorization: `Bearer ${token}` } });
   } catch (err) {

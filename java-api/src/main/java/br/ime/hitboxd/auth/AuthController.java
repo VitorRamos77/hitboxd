@@ -10,8 +10,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import br.ime.hitboxd.auth.AuthDtos.Config;
-import br.ime.hitboxd.auth.AuthDtos.GoogleLogin;
 import br.ime.hitboxd.auth.AuthDtos.Login;
 import br.ime.hitboxd.auth.AuthDtos.Register;
 import br.ime.hitboxd.auth.AuthDtos.Session;
@@ -23,16 +21,9 @@ import jakarta.validation.Valid;
 public class AuthController {
 
 	private final AuthService auth;
-	private final GoogleTokenVerifier google;
 
-	public AuthController(AuthService auth, GoogleTokenVerifier google) {
+	public AuthController(AuthService auth) {
 		this.auth = auth;
-		this.google = google;
-	}
-
-	@GetMapping("/config")
-	public Config config() {
-		return new Config(google.isEnabled(), google.isEnabled() ? google.clientId() : null);
 	}
 
 	@PostMapping("/register")
@@ -44,11 +35,6 @@ public class AuthController {
 	@PostMapping("/login")
 	public Session login(@Valid @RequestBody Login input) {
 		return auth.login(input.username(), input.password());
-	}
-
-	@PostMapping("/google")
-	public Session google(@Valid @RequestBody GoogleLogin input) {
-		return auth.loginWithGoogle(input.credential());
 	}
 
 	@GetMapping("/me")

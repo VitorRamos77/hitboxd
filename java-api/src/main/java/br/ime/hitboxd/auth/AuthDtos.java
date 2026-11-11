@@ -25,14 +25,6 @@ public final class AuthDtos {
 	public record Login(@NotBlank String username, @NotBlank String password) {
 	}
 
-	/** O "credential" que o botão do Google entrega ao navegador (um ID token JWT). */
-	public record GoogleLogin(@NotBlank String credential) {
-	}
-
 	public record Session(String token, Instant expiresAt, UserSummary user) {
-	}
-
-	/** O que o frontend precisa saber antes do login. */
-	public record Config(boolean googleEnabled, String googleClientId) {
 	}
 }

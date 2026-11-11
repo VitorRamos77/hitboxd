@@ -39,12 +39,10 @@ public final class UserDtos {
 	}
 
 	/** Os dados da própria conta, que só o dono vê. */
-	public record Me(UserSummary user, String email, boolean emailVerified, boolean hasPassword,
-			boolean googleLinked, boolean admin) {
+	public record Me(UserSummary user, String email) {
 
-		public static Me of(User user, boolean admin) {
-			return new Me(UserSummary.of(user), user.getEmail(), user.isEmailVerified(), user.getPasswordHash() != null,
-					user.getGoogleSub() != null, admin);
+		public static Me of(User user) {
+			return new Me(UserSummary.of(user), user.getEmail());
 		}
 	}
 }

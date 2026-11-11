@@ -88,16 +88,13 @@ window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); }
     localStorage.removeItem("hitboxd.user"); // sobra da versão sem senha
   } catch { /* armazenamento indisponível */ }
 
-  const [games, config, me] = await Promise.all([
+  const [games, me] = await Promise.all([
     catalog("/api/games?sort=title").catch(() => []),
-    social("/api/auth/config").catch(() => null),
     // confere se a sessão guardada ainda vale e descobre de quem é
     state.token ? social("/api/auth/me").catch(() => null) : null,
     checkServices(),
   ]);
-  if (config) state.authConfig = config;
   state.userId = me?.user.id ?? null;
-  state.isAdmin = me?.admin ?? false;
   if (!me) state.token = null;
   await loadUsers();
   games.forEach((g) => state.games.set(g.id, g));

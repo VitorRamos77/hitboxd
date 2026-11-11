@@ -28,12 +28,6 @@ public class ApiExceptionHandler {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("detail", ex.getMessage()));
 	}
 
-	/** Recurso que depende de configuração ausente (ex.: login com o Google sem GOOGLE_CLIENT_ID). */
-	@ExceptionHandler(IllegalStateException.class)
-	ResponseEntity<Map<String, String>> unavailable(IllegalStateException ex) {
-		return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("detail", ex.getMessage()));
-	}
-
 	@ExceptionHandler(ConflictException.class)
 	ResponseEntity<Map<String, String>> conflict(ConflictException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("detail", ex.getMessage()));

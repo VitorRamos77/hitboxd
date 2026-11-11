@@ -18,7 +18,6 @@ function signupModal() {
   openModal(`
     <h2>Criar conta</h2>
     <div class="muted">Comece seu diário de jogos.</div>
-    ${googleBlock("signup")}
     <form class="form" id="signup-form">
       <label>Nome de usuário <input type="text" name="username" pattern="[a-zA-Z0-9_]{3,30}" required autocomplete="username" placeholder="ex: joao_gamer"></label>
       <label>Nome de exibição <input type="text" name="displayName" maxlength="60" required autocomplete="name"></label>
@@ -35,7 +34,6 @@ function signupModal() {
       </div>
     </form>
     <p class="muted" style="margin:18px 0 0;text-align:center">Já tem conta? <button class="link-btn accent" id="to-login">Entrar</button></p>`, (root) => {
-    mountGoogleButton(root, "signup_with");
     root.querySelector("#to-login").addEventListener("click", loginModal);
     root.querySelector("#signup-form").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -59,7 +57,6 @@ function signupModal() {
 function loginModal() {
   openModal(`
     <h2>Entrar no hitBoxd</h2>
-    ${googleBlock("login")}
     <form class="form" id="login-form">
       <label>Nome de usuário <input type="text" name="username" required autocomplete="username" placeholder="ex: ana_souls"></label>
       <label>Senha <input type="password" name="password" required autocomplete="current-password"></label>
@@ -70,7 +67,6 @@ function loginModal() {
       </div>
     </form>
     <p class="muted" style="margin:18px 0 0;text-align:center">Não tem conta? <button class="link-btn accent" id="to-signup">Criar conta</button></p>`, (root) => {
-    mountGoogleButton(root, "signin_with");
     root.querySelector("#to-signup").addEventListener("click", signupModal);
     root.querySelector("#login-form").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -88,58 +84,10 @@ function loginModal() {
   });
 }
 
-/** Espaço do botão do Google nos modais de login e cadastro (só aparece se o serviço tiver um client ID). */
-function googleBlock(kind) {
-  if (!state.authConfig.googleEnabled) return "";
-  return `<div class="google-slot" id="google-slot"></div>
-    <div class="login-divider"><span>ou ${kind === "signup" ? "cadastre-se" : "entre"} com usuário e senha</span></div>`;
-}
-
-let googleScript = null;
-
-function loadGoogleScript() {
-  googleScript ??= new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.onload = resolve;
-    script.onerror = () => { googleScript = null; reject(new Error("Não foi possível carregar o login do Google")); };
-    document.head.appendChild(script);
-  });
-  return googleScript;
-}
-
-async function mountGoogleButton(root, text) {
-  const slot = root.querySelector("#google-slot");
-  if (!slot) return;
-  try {
-    await loadGoogleScript();
-    google.accounts.id.initialize({
-      client_id: state.authConfig.googleClientId,
-      // o Google entrega um ID token assinado; o serviço Java confere a assinatura antes de aceitar
-      callback: async ({ credential }) => {
-        try {
-          await startSession(await social("/api/auth/google", { method: "POST", body: { credential } }));
-          toast(`Olá, ${currentUser().displayName.split(" ")[0]}!`);
-          render();
-        } catch (err) {
-          const error = modal.querySelector("#form-error");
-          if (error) error.textContent = err.message;
-          else toast(err.message, true);
-        }
-      },
-    });
-    google.accounts.id.renderButton(slot, { theme: "filled_black", size: "large", text, shape: "pill", width: 300 });
-  } catch (err) {
-    slot.innerHTML = `<div class="faint">${esc(err.message)}</div>`;
-  }
-}
-
 /** Guarda a sessão recebida do login/cadastro e carrega o usuário. */
 async function startSession(session) {
   modal.close();
   setSession(session.token, session.user.id);
-  state.isAdmin = (await social("/api/auth/me").catch(() => null))?.admin ?? false;
   await loadUsers();
 }
 
@@ -164,7 +112,6 @@ export async function loadUsers() {
 export function setSession(token, userId = null) {
   state.token = token;
   state.userId = token ? userId : null;
-  if (!token) state.isAdmin = false;
   try {
     if (token) localStorage.setItem("hitboxd.session", token);
     else localStorage.removeItem("hitboxd.session");
@@ -202,7 +149,6 @@ function renderSession() {
         <a role="menuitem" href="#/diary">Meu diário</a>
         <a role="menuitem" href="#/lists">Minhas listas</a>
         <a role="menuitem" href="#/people">Encontrar pessoas</a>
-        ${state.isAdmin ? '<a role="menuitem" href="#/admin">Administração</a>' : ""}
         <hr>
         <button role="menuitem" data-account="details">Dados da conta</button>
         <button role="menuitem" data-account="switch">Trocar de conta</button>
