@@ -104,10 +104,10 @@ O sistema é dividido em dois serviços: um em **Python (FastAPI)**, dono do cat
 
 | Integrante | Atribuições |
 |---|---|
-| **Vitor Ramos** | Front-end em HTML, CSS e JavaScript (páginas, rotas por `#hash`, busca e janelas) e integração do site com as duas APIs. |
-| **Busnello** | API Python (FastAPI): catálogo de jogos, capas e screenshots em WebP, recomendações e área do administrador. |
-| **Bobeda** | API Java (Spring Boot): contas, login com usuário e senha, sessões e avaliações com curtidas. |
-| **Pedro** | API Java (Spring Boot): diário de jogo, listas, seguidores e feed, além dos testes e do README. |
+| **Vitor Ramos** | API Python (FastAPI): catálogo de jogos, capas e screenshots, recomendações e área do administrador. API Java (Spring Boot): contas, login, avaliações, diário, listas, seguidores e feed. |
+| **Busnello** | API Python (FastAPI): catálogo de jogos, capas e screenshots, recomendações e área do administrador. API Java (Spring Boot): contas, login, avaliações, diário, listas, seguidores e feed. |
+| **Bobeda** | Testes, README, documentação e vídeo de apresentação. |
+| **Pedro** | Front-end em HTML, CSS e JavaScript: páginas, rotas por `#hash`, busca e janelas. |
 
 ---
 
