@@ -68,24 +68,15 @@ Recursos opcionais, como a área do administrador e a senha das contas de exempl
 
 ---
 
-## Sumário
+## 📑 Sumário
 
-- [Início rápido](#-início-rápido)
-- [O que é o hitBoxd](#-o-que-é-o-hitboxd)
-- [Integrantes](#-integrantes)
-- [Tecnologias](#-tecnologias)
-- [Conhecendo o site](#️-conhecendo-o-site)
-- [Todos os recursos](#-todos-os-recursos)
-- [Arquitetura](#️-arquitetura)
-- [Portas e endereços úteis](#-portas-e-endereços-úteis)
-- [Variáveis de ambiente](#️-variáveis-de-ambiente)
-- [Contas e login](#-contas-e-login)
-- [Área do administrador](#️-área-do-administrador)
-- [Como funciona por dentro](#-como-funciona-por-dentro)
-- [Estrutura do projeto](#-estrutura-do-projeto)
-- [Referência da API](#-referência-da-api)
-- [Testes](#-testes)
-- [Limitações](#️-limitações)
+| 🚀 Primeiros passos | 🎮 O site | 🔧 Por dentro |
+|---|---|---|
+| [Início rápido](#-início-rápido) | [Conhecendo o site](#️-conhecendo-o-site) | [Arquitetura](#️-arquitetura) |
+| [O que é o hitBoxd](#-o-que-é-o-hitboxd) | [Todos os recursos](#-todos-os-recursos) | [Como funciona por dentro](#-como-funciona-por-dentro) |
+| [Integrantes](#-integrantes) | [Contas e login](#-contas-e-login) | [Estrutura do projeto](#-estrutura-do-projeto) |
+| [Tecnologias](#-tecnologias) | [Área do administrador](#️-área-do-administrador) | [Referência da API](#-referência-da-api) |
+| [Portas e endereços úteis](#-portas-e-endereços-úteis) | [Variáveis de ambiente](#️-variáveis-de-ambiente) | [Testes](#-testes) |
 
 ---
 
@@ -574,16 +565,6 @@ cd java-api
 | `AuthServiceTest` | Cadastro e login com a senha certa, senha errada (`401`), nome de usuário repetido (`409`), token inválido e que só o autor altera a própria avaliação (`403`). |
 
 Além dos testes automatizados, as páginas do site foram testadas manualmente pelo navegador com os dois serviços rodando.
-
----
-
-## ⚠️ Limitações
-
-- **Dados em memória:** contas, avaliações e o catálogo voltam aos dados de exemplo quando os serviços reiniciam, e as sessões abertas caem. Para persistir, troque a URL do H2 em `java-api/src/main/resources/application.properties` por um arquivo (`jdbc:h2:file:./data/hitboxd`) e o catálogo Python por um banco.
-- **Sem recuperação de senha nem confirmação de e-mail:** não há envio de e-mails.
-- **O serviço Java não conhece o catálogo:** ele guarda só o `gameId` e não confere se o jogo existe. Um `gameId` inválido enviado direto pela API é aceito, e o site o mostra como "Jogo #id".
-- **HowLongToBeat não oficial:** a atualização automática depende de uma biblioteca não oficial. Se ela falhar, o site continua com os últimos tempos conhecidos.
-- **Rodando localmente:** sem HTTPS, os tokens trafegam em texto puro. Em produção, sirva os dois serviços atrás de HTTPS.
 
 ---
 
