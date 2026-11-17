@@ -34,7 +34,7 @@ cd java-api
 .\mvnw.cmd spring-boot:run
 ```
 
-<sub>No Linux/macOS: `./mvnw spring-boot:run`. Na primeira vez o Maven baixa as dependências, o que pode levar alguns minutos.</sub>
+<sub>No Linux/macOS: `./mvnw spring-boot:run`. Na primeira vez o Maven baixa as dependências, o que pode levar alguns minutos. Só tem o JDK 21? Rode `.\mvnw.cmd spring-boot:run "-Djava.version=21"`: o código não usa recursos do Java 22+.</sub>
 
 Deixe esse terminal aberto. O serviço está pronto quando aparecer `Started HitboxdApiApplication`.
 
@@ -73,15 +73,18 @@ Recursos opcionais, como a área do administrador e a senha das contas de exempl
 - [Início rápido](#-início-rápido)
 - [O que é o hitBoxd](#-o-que-é-o-hitboxd)
 - [Integrantes](#-integrantes)
+- [Tecnologias](#-tecnologias)
 - [Conhecendo o site](#️-conhecendo-o-site)
 - [Todos os recursos](#-todos-os-recursos)
 - [Arquitetura](#️-arquitetura)
+- [Portas e endereços úteis](#-portas-e-endereços-úteis)
 - [Variáveis de ambiente](#️-variáveis-de-ambiente)
 - [Contas e login](#-contas-e-login)
 - [Área do administrador](#️-área-do-administrador)
 - [Como funciona por dentro](#-como-funciona-por-dentro)
 - [Estrutura do projeto](#-estrutura-do-projeto)
 - [Referência da API](#-referência-da-api)
+- [Testes](#-testes)
 - [Limitações](#️-limitações)
 
 ---
@@ -108,6 +111,16 @@ O sistema é dividido em dois serviços: um em **Python (FastAPI)**, dono do cat
 | **Busnello** | API Python (FastAPI): catálogo de jogos, capas e screenshots, recomendações e área do administrador. API Java (Spring Boot): contas, login, avaliações, diário, listas, seguidores e feed. |
 | **Bobeda** | Testes, README, documentação e vídeo de apresentação. |
 | **Pedro** | Front-end em HTML, CSS e JavaScript: páginas, rotas por `#hash`, busca e janelas. |
+
+---
+
+## 🧰 Tecnologias
+
+| Parte | Tecnologia | Versão | Dependências principais |
+|---|---|---|---|
+| API do catálogo (`python-api/`) | Python + FastAPI | Python 3.11+ · FastAPI 0.115 | `uvicorn` (servidor), `httpx` (chamadas ao serviço Java), `pillow` (imagens), `howlongtobeatpy` (tempos) — ver [`requirements.txt`](python-api/requirements.txt) |
+| API da comunidade (`java-api/`) | Java + Spring Boot | JDK 25 · Spring Boot 4.1 | Spring Web MVC, Spring Data JPA, Bean Validation, H2 (banco em memória), Spring Security Crypto (BCrypt) — ver [`pom.xml`](java-api/pom.xml) |
+| Site (`frontend/`) | HTML + CSS + JavaScript | módulos ES nativos | nenhuma: sem frameworks e sem etapa de build |
 
 ---
 
@@ -201,14 +214,18 @@ flowchart LR
 
 O serviço Java guarda só o `gameId` de cada jogo. O serviço Python consulta as avaliações no Java para calcular médias, a distribuição das notas e as recomendações.
 
+Os dois serviços são independentes: se o Java cair, o catálogo continua respondendo e o site mostra um aviso no topo.
+
 ---
 
-### Endereços úteis
+## 🔌 Portas e endereços úteis
 
 | Endereço | O que é |
 |---|---|
-| http://localhost:8000 | O site |
+| http://localhost:8000 | O site (servido pelo FastAPI) |
 | http://localhost:8000/docs | Documentação interativa da API do catálogo (FastAPI) |
+| http://localhost:8000/api/health | Status do catálogo e se ele enxerga o serviço Java |
+| http://localhost:8080/api/... | API da comunidade (Spring Boot) |
 | http://localhost:8080/h2-console | Console do banco H2 (JDBC URL `jdbc:h2:mem:hitboxd`, usuário `sa`, sem senha) |
 
 ---
@@ -224,17 +241,26 @@ Tudo é opcional: sem nenhuma variável o site funciona (é o que o [Início rá
 | `HLTB_REFRESH_HOURS` | FastAPI | Intervalo, em horas, entre as atualizações automáticas dos tempos do HowLongToBeat (padrão `24`; `0` desliga). |
 | `DEMO_PASSWORD` | Spring Boot | Senha das contas de exemplo. Sem ela, as contas de exemplo existem, mas não entram com senha. |
 
-Exemplo no PowerShell:
+A variável precisa ser definida **no mesmo terminal** e **antes** de subir o serviço. Exemplo no PowerShell:
 
 ```powershell
+# terminal do Java (pasta java-api)
+$env:DEMO_PASSWORD = "senha-das-contas-demo"
+.\mvnw.cmd spring-boot:run
+
+# terminal do Python (pasta python-api)
 $env:ADMIN_PASSWORD = "uma-senha-forte"
-uvicorn app.main:app --port 8000
+.venv\Scripts\python -m uvicorn app.main:app --port 8000
 ```
 
 E no Linux/macOS:
 
 ```bash
-ADMIN_PASSWORD="uma-senha-forte" uvicorn app.main:app --port 8000
+# terminal do Java (pasta java-api)
+DEMO_PASSWORD="senha-das-contas-demo" ./mvnw spring-boot:run
+
+# terminal do Python (pasta python-api)
+ADMIN_PASSWORD="uma-senha-forte" .venv/bin/python -m uvicorn app.main:app --port 8000
 ```
 
 ---
@@ -439,7 +465,8 @@ hitboxd/
 
 ## 📡 Referência da API
 
-Os erros voltam como `{"detail": "mensagem"}`, com status `400`, `401`, `403`, `404`, `409` ou `503`.
+Todas as rotas respondem em JSON (exceto as de imagem, que devolvem `image/webp`). Os erros voltam como `{"detail": "mensagem"}`, com status `400`, `401`, `403`, `404`, `409` ou `503`. A exceção são os erros de validação do FastAPI (`422`), em que `detail` é uma lista com o problema de cada campo.
+
 🔐 = exige login (`Authorization: Bearer <token>`). 🛠️ = exige o token do admin.
 
 <details>
@@ -530,10 +557,31 @@ Os erros voltam como `{"detail": "mensagem"}`, com status `400`, `401`, `403`, `
 
 ---
 
+## 🧪 Testes
+
+O serviço Java tem testes automatizados com JUnit e Spring Boot Test. Para rodar:
+
+```powershell
+cd java-api
+.\mvnw.cmd test
+```
+
+<sub>No Linux/macOS: `./mvnw test`.</sub>
+
+| Teste | O que confere |
+|---|---|
+| `HitboxdApiApplicationTests` | A aplicação sobe com todas as configurações e os dados de exemplo. |
+| `AuthServiceTest` | Cadastro e login com a senha certa, senha errada (`401`), nome de usuário repetido (`409`), token inválido e que só o autor altera a própria avaliação (`403`). |
+
+Além dos testes automatizados, as páginas do site foram testadas manualmente pelo navegador com os dois serviços rodando.
+
+---
+
 ## ⚠️ Limitações
 
 - **Dados em memória:** contas, avaliações e o catálogo voltam aos dados de exemplo quando os serviços reiniciam, e as sessões abertas caem. Para persistir, troque a URL do H2 em `java-api/src/main/resources/application.properties` por um arquivo (`jdbc:h2:file:./data/hitboxd`) e o catálogo Python por um banco.
 - **Sem recuperação de senha nem confirmação de e-mail:** não há envio de e-mails.
+- **O serviço Java não conhece o catálogo:** ele guarda só o `gameId` e não confere se o jogo existe. Um `gameId` inválido enviado direto pela API é aceito, e o site o mostra como "Jogo #id".
 - **HowLongToBeat não oficial:** a atualização automática depende de uma biblioteca não oficial. Se ela falhar, o site continua com os últimos tempos conhecidos.
 - **Rodando localmente:** sem HTTPS, os tokens trafegam em texto puro. Em produção, sirva os dois serviços atrás de HTTPS.
 
